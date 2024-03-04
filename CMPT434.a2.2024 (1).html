@@ -1,0 +1,209 @@
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+  <meta http-equiv="Content-Type"
+ content="text/html; charset=iso-8859-1">
+  <meta name="GENERATOR"
+ content="Mozilla/4.76 [en] (X11; U; Linux 2.4.18-17.7.x i686) [Netscape]">
+  <title>CMPT 434 Assignment 2 - 2023-24</title>
+</head>
+<body>
+<img src="splashBanner.gif" align="middle">
+<h1> CMPT 434 - COMPUTER NETWORKS - Winter 2023/2024
+<br>
+University of Saskatchewan
+<br>
+Assignment 2: Media Access Control - Network Layer<br>
+</h1>
+<b>Instructor:</b> Dwight Makaroff <br>
+<b>Out: </b>February 6, 2024<br>
+<b>Due:</b> 9:30PM, March 5, 2024 <br>
+
+<p>Total Marks: 60.
+
+<P> <b>Part A: MAC Layer Protocols </b> (9 marks).
+
+<p>
+For all questions in Part A, show your work, so part marks can be
+given for correct reasoning, but faulty mathematical execution.
+
+<ol>
+<li><p>
+<i>(3 marks)</i>
+
+Give the checksum for 10111011001 using CRC with generator 10111.
+
+</ul>
+
+<li><p>
+<i>(3 marks)</i>
+Give the ratio of the propagation delay &tau; to the frame transmission
+time <i>t</i> for each of the following wireless (i.e., use the speed of
+signal propagation through air) networking scenarios (round each
+answer off to 2 significant figures), and state for each which of
+ALOHA or CSMA would do better:
+
+<ul>
+<li type="a"> approx 50 meter distance between nodes, 100 Mbps Data
+  rate, 2 Kbit frames.
+<li type="a"> approx 5 kilometer distance between nodes, 100 Mbps Data
+  rate, 2 Kbit frames.
+<li type="a"> approx 200 meter distance between nodes, 10 Gbps Data
+  rate, 20 Kbit frames.
+</ul>
+</li>
+
+<li>
+(3 marks) Requiring all transmissions to be synchronized into slots is
+known to increase the efficiency of slotted ALOHA over that of "pure"
+(unslotted) ALOHA. However, under light load, the slotted protocol
+suffers from longer delays because nodes must wait for the next slot
+before they transmit. As a compromise, consider "mini-slotted" ALOHA,
+where the slot size is reduced to 1/B of the frame transmission time
+t. Each transmission must still begin at a slot boundary, but now it
+occupies the channel for a block of B consecutive slots. (Note that
+slotted ALOHA is the B=1 case, and unslotted ALOHA is obtained in the
+limit as B gets big.) As a function of B and t, what is the length of
+the "vulnerable period" in mini-slotted ALOHA?
+</ol>
+
+
+<p> <b>Part B: Network Layer Protocols </b> (11 marks).
+
+As well, show your work for these questions.
+<ol>
+<li><p>
+<i>(4 marks)</i>
+Consider the following graph in which the nodes represent routers,
+the edges represent links, and the labels indicate the link costs.
+
+<ul>
+<li type="a"> 
+Show the shortest path length estimates after each step when
+Dijkstra's algorithm is applied to the above network with node C as
+the source.
+<br>
+<img src="Graph-A2.jpg" height="400" align="middle">
+
+
+<li type="a"> 
+(4 marks)
+Suppose now that <i>distance vector</i> routing is used, and that each minute
+all nodes <i>simultaneously</i> send routing updates to their
+neighbours. Consider those updates relating to the path lengths to
+node C. Let D<sup>x</sup>(C) denote node <i>x</i>'s estimate of 
+its shortest path length to node C. Each minute, each node <i>x</i>
+sends D<sup>x</sup>(C) to each of its neighbours, and simultaneously
+receives D<sup>y</sup>(C) from each of its neighbour
+nodes <i>y</i>. Node x will then update D<sup>x</sup>(C) to 
+the minimum over all neighbours <i>y</i> of D<sup>y</sup>(C)
+plus the cost of the link between <i>x</i> and <i>y</i>. Supposing
+that link CB fails, give a table showing the evolution of the
+D<sup>x</sup>(C) 
+values for all nodes <i>x</i> (except C) until these
+values stabilize. For the first row of the table, use the shortest
+path lengths when there are no link failures. Note that because of the
+assumed synchronous operation, the D<sup>x</sup>(C) values in one row
+will reflect the current link costs together with the D<sup>y</sup>(C)
+values in the <b>previous</b> row.
+
+<li type="a"> 
+(3 marks)
+Repeat part (b), but now assuming use of <i>poisoned reverse</i>.
+
+
+</ul>
+</ol>
+
+<p> <b>Part C: UDP Protocol Socket Programming</b> (40 marks)
+<p>
+In this question your task is to design and implement a protocol that
+provides reliable message delivery over UDP, as well as to design and
+implement "network emulation" code that will enable testing of your solution.
+
+<ol>
+<li type = "a">
+(20 marks) 
+
+Design and implement a simple <b>UDP-based</b> network emulator. Your
+program should take as parameters a drop probability <i>p</i>, a delay
+value <i>d</i>, a maximum queue size <i>q</i>, and three port
+numbers <i>A</i>, <i>B</i>, and <i>C</i>. Your emulator should listen
+for incoming UDP segments on port <i>A</i> (which should also be used
+for transmitting outgoing segments). When a UDP segment is received
+(with source port of either <i>B</i> or <i>C</i>) the emulator 
+should discard it with probability <i>p</i>. With probability <i>1-p</i>, the
+emulator should queue the segment for delivery to port <i>B</i> if the source
+port of the segment is <i>C</i>, and to port <i>C</i> if the source
+port is <i>B</i>. There should be two separate queues, one for
+segments to be sent to <i>B</i>, and one for segments to be sent
+to <i>C</i>. Each queue should be able to accommodate <i>q</i>
+segments; if the queue to which a new incoming segment should be added
+is full, the incoming segment should be discarded. Each segment should
+spend time <i>d</i> in the queue before being 
+sent out (after which it should be removed from the queue). It should
+be possible to test your network emulator using <i>netcat</i>.
+
+<li type = "a">
+(20 marks) 
+Implement a <b>client</b> and <b>server</b> using <b>UDP-based</b>
+communication to provide reliable delivery using a 
+<b>selective repeat</b> protocol. You may existing solution
+for UDP programs as the starting point for the main components
+of the client and server, as in Beej's network guide. You can combine
+your network emulator with these programs to have examples of a lossy
+network. Show some information at the server/client for how many
+packets/acknowlegments succeed, how many fail, and how much
+retransmission is necessary, based on various choices for the 3
+parameters from part a. You don't need a systematic study to be done,
+but a few examples would be sufficient.
+
+</li>
+
+</ol>
+
+<p>
+<b>FINAL NOTE:</b> All programming practises required for CMPT 332 must be
+followed:
+<ul>
+<li>Check the return values from system calls
+<li>Check the command-line parameters
+<li>Compile with -Wall -pedantic. (We want C, not C++, and code should
+	compile with zero warnings) -std=gnu90 is optional.
+<li>Name, NSID, and Student number in EVERY FILE.
+<li>Any more defensive programming measures that come to mind.
+</ul>
+
+
+<h3> Hand In Instructions</h3>
+<p>
+
+Create a directory for this assignment:
+<ul>
+  <li> Place in this directory your assignment including the following:</li>
+  <ul>
+    <li>N separate PDF documents named QuestionPartX_Y.pdf (where X is
+    the part number and Y is the number of the question).
+    <li>Source code, header files, and makefile to compile the various
+    binary programs.
+    <li>Git logs for your progress and proper version control
+    practises.
+    <li>Design document: <tt>Design.txt</tt>.
+    <li>Testing showing message transmission and reception
+  </ul>
+
+  <li> Now you are ready to hand in your assignment. To do so you are
+going to make a <span style="font-weight: bold;">tar</span> file, and
+upload it to Blackboard's assignment hand-in. All files in the main
+directory of the tar file, <b>no subdirectories</b>.
+A marking script will then untar the assignment. Please do not gzip
+    the file. I've had problems with 
+different students using different versions of the compression program
+and it just takes too much TA time, or requires a more complicated
+    script to extract the necessary files.</li>
+  <li> That's it - you are done.</li>
+</ul>
+
+
+</body>
+</html>
