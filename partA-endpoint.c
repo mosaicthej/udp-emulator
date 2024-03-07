@@ -26,6 +26,19 @@
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
+#define PORTMAX 65535
+#define PORTMIN 1024
+
+/* arguments to each thread. */
+struct sender_info {
+  char *send_to_host;
+  char *send_to_port;
+};
+
+struct receiver_info {
+  char *receive_from_port;
+};
+
 /* validate port numbers */
 int check_args(char* st_host, char* st_port, char* rf_port){
   int st_p = atoi(st_port);
