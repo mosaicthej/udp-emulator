@@ -40,24 +40,24 @@ struct receiver_info {
 };
 
 /* validate port numbers */
-int check_args(char* st_host, char* st_port, char* rf_port){
+int check_args(char *st_host, char *st_port, char *rf_port) {
   int st_p = atoi(st_port);
   int rf_p = atoi(rf_port);
 
-  if (strlen(st_host) == 0){
+  if (strlen(st_host) == 0) {
     fprintf(stderr, "send-to-host cannot be empty\n");
     return EXIT_FAILURE;
   }
-  
-  if(st_p < PORTMIN || st_p > PORTMAX){
-    fprintf(stderr, "send-to-port must be between %d and %d\n", 
-            PORTMIN, PORTMAX);
+
+  if (st_p < PORTMIN || st_p > PORTMAX) {
+    fprintf(stderr, "send-to-port must be between %d and %d\n", PORTMIN,
+            PORTMAX);
     return EXIT_FAILURE;
   }
- 
-  if(rf_p < PORTMIN || rf_p > PORTMAX){
-    fprintf(stderr, "receive-from-port must be between %d and %d\n", 
-            PORTMIN, PORTMAX);
+
+  if (rf_p < PORTMIN || rf_p > PORTMAX) {
+    fprintf(stderr, "receive-from-port must be between %d and %d\n", PORTMIN,
+            PORTMAX);
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
