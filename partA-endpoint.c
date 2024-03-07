@@ -63,7 +63,46 @@ int check_args(char *st_host, char *st_port, char *rf_port) {
   return EXIT_SUCCESS;
 }
 
+/*
+ * Program: end points
+ *   2 threads, 1 for sending, 1 for receiving
+ *
+ *   Send-to host:port are from command line arguments,
+ *   receive-from port is also from command line argument.
+ *
+ *  using posix threads to do threading.
+ * */
+
+int main(int argc, char *argv[]) {
+  int s; /* keep track status of system calls */
+  pthread_attr_t attr;
+  struct sender_info send_info; // no need to malloc since always 1 instance
+  struct receiver_info recv_info;
+
+  /* taking the command line arguments */
+  if (argc != 4) {
+    fprintf(stderr,
+            "Usage: %s <send-to-host> <send-to-port> <receive-from-port>\n",
+            argv[0]);
+    return EXIT_FAILURE;
   }
+
+  char *send_to_host = argv[1];
+  char *send_to_port = argv[2];
+  char *receive_from_port = argv[3];
+
+  /* error checkings */
+  if (check_args(send_to_host, send_to_port, receive_from_port) != EXIT_SUCCESS)
+    return EXIT_FAILURE;
+
+  /* thread creation attributes */
+  s = pthread_attr_init(&attr);
+  if (s != 0)
+    handle_error_en(s, "pthread_attr_init");
+
+  /* create 2 threads */
+
+  return EXIT_SUCCESS;
 }
 
 int send_thread(char *send_to_host, char *send_to_port) {
