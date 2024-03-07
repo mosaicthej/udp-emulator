@@ -167,3 +167,32 @@ on average each message would be delayed for $d$.
 
 This is a reasonable trade-off between the accuracy and design simplicity.
 
+#### Simulating Packet-Lossing: RNG
+
+Simulating packet-lossing would be easy. Just using an RNG.
+
+Get a random number (0~1), if it is between 0 and p, then drop, otherwise, send
+the message to dest.
+
+If time allows, I'll use random numbers from digits of pi, in celebrate pi-day.
+
+pseudocode for sender thread:
+
+```c
+while(!done){
+  no_msg=true;
+  while(no_msg){
+    sleep(2*d);
+    no_msg = (msg=dequeue(Q))==NULL;
+  }
+  // got a message!
+  r = random(0,1)
+  if (r > p){
+     dest = get_dest(msg);
+     msg_content = get_content(msg);
+     send(msg, dest);
+  }
+}
+```
+
+
