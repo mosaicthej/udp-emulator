@@ -100,3 +100,43 @@ int send_thread(char *send_to_host, char *send_to_port) {
 }
 
 
+int receive_thread(char *receive_from_port) {
+  /* create a socket */
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sockfd < 0) {
+    perror("socket");
+    return EXIT_FAILURE;
+  }
+  /* set up the address to receive from */
+  struct addrinfo hints, *res;
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_flags = AI_PASSIVE;
+  int status = getaddrinfo(NULL, receive_from_port, &hints, &res);
+  if (status != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+    return EXIT_FAILURE;
+  }
+  /* bind the socket */
+  status = bind(sockfd, res->ai_addr, res->ai_addrlen);
+  if (status < 0) {
+    perror("bind");
+    return EXIT_FAILURE;
+  }
+  /* receive data */
+  char buf[100];
+  struct sockaddr_storage their_addr;
+  socklen_t addr_len = sizeof(their_addr);
+  int numbytes = recvfrom(sockfd, buf, sizeof(buf) - 1, 0,
+                         (struct sockaddr *)&their_addr, &addr_len);
+  if (numbytes < 0) {
+    perror("recvfrom");
+    return EXIT_FAILURE;
+  }
+  buf[numbytes] = '\0';
+  printf("received: %s\n", buf);
+  freeaddrinfo(res);
+  close(sockfd);
+  return EXIT_SUCCESS;
+}
