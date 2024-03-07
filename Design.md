@@ -147,3 +147,23 @@ as the specification, the sender will need to simulate the effect of
  1. propagation delay (from input argument `d`)
  2. loss probability (from input argument `p`)
 
+##### Simulating Delay: polling-watchdog
+
+To simulating the delay, I would simply let the server sleep for $2d$ units of
+time, then take the message out from a queue. 
+If there is no message in the queue, sleep again and check when wake up.
+
+This would be the most efficient (polling-watchdog implementation) 
+instead of constantly polling.
+
+the reason for using $2d$ instead of $d$ unit of time is that, the thread will
+(most likely) to be sleeping. The thread could have slept for anything between
+$0$ and $2d$ unit of time, which, the message would wait for anywhere between 
+$2d$ and $0$ unitof time. Ignore the effect of time being quantitized on 
+computer's clock, on average,
+the message would be delayed for $\frac{2d + 0}{2} = d$ unit of time, which, 
+even each individual message might be delayed anywhere between 0 and $2d$, 
+on average each message would be delayed for $d$.
+
+This is a reasonable trade-off between the accuracy and design simplicity.
+
