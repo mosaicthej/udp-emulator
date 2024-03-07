@@ -100,3 +100,50 @@ function that wraps around the two functions. I'll see... Looks fun...
 
 The host is always A......
 
+### Server/Router (A)
+
+rather than being an actual server, (from application pov sense)
+the job of A is to simulate a channel/message-passing-medium which would drop 
+the messages with a specified probility.
+
+Again, the reason to use UDP is to just by-passing the 
+
+Since A would also need to simulate a situation of the propagation delay.
+
+To make things more structurally sound and modular, I will use two threads. 
+To enable the communication between the two endpoints, a shared queue will be 
+required for upholding the messages. 
+
+#### Channel: Receiver
+
+This thread is the one that is in charge of receiving the incoming messaages 
+and adding the message to the end of the queue.
+
+It will be blocked by the RECV primitive. When something arrives from network,
+the RECV would return, and this thread will add the message in the shared Q.
+
+After this, it will going back to waiting for another message via RECV.
+
+pseudocode
+
+```c
+while (!done) {
+  recv_from(PORT, &msg);
+  add_to_queue(msgQ, msg);
+}
+```
+
+The Receiver should be as simple as possible so it would spend most time on 
+`recv` so not to accidentally loss data.
+
+#### Channel: Sender
+
+This thread is the one that is in charge of taking messages out of the queue,
+and sends out to the destination. (this is related to the message structure 
+which I will mention a bit later)
+
+Aside from being the channel that is forwarding the message, 
+as the specification, the sender will need to simulate the effect of
+ 1. propagation delay (from input argument `d`)
+ 2. loss probability (from input argument `p`)
+
