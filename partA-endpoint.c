@@ -200,6 +200,7 @@ int send_thread(char *send_to_host, char *send_to_port) {
 
 
 int receive_thread(char *receive_from_port) {
+VOID_PTR_INT_CAST receive_thread(void * arg) {
   /* create a socket */
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sockfd < 0) {
