@@ -238,7 +238,8 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
   /* loop through the result and make a socket */
   done = false;
   hasProblemo = false;
-  for (p = servinfo; p != NULL && !done; p = p->ai_next) {
+  p = servinfo;
+  while(p!=NULL && !done) {
     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (sockfd < 0) {
       perror("socket");
@@ -246,6 +247,8 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
     }
     done = !hasProblemo; /* if no problem, done
       otherwise go to next socket until run out */
+    hasProblemo = false; /* reset the flag */
+    if (!hasProblemo) p = p->ai_next; /* go to next socket if not done */
   }
 
   if (p == NULL) { /* if no socket is created */
@@ -331,20 +334,25 @@ VOID_PTR_INT_CAST receive_thread(void *arg) {
   /* find socket to bind */
   done = false;
   hasproblemo = false;
-  for (p = servinfo; p != NULL && !done; p = p->ai_next) {
+  p = servinfo;
+  while(p!=NULL && !done){    
     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    hasproblemo = false;
     if (sockfd < 0) {
       perror("receive_thread: socket");
       hasproblemo = true;
     }
     done = !hasproblemo; /* if no problem, done
     otherwise go to next socket until run out */
-    if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
-      close(sockfd);
-      perror("receiver thread: bind");
-      hasproblemo = true;
+    if (!hasproblemo) {  /* if no problem, bind it */
+      if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
+        close(sockfd);
+        perror("receiver thread: bind");
+        hasproblemo = true;
+      }
     }
     done = done && !hasproblemo; /* both action needs to be successful */
+    if(!done) p = p->ai_next; /* go to next socket if not done */
   }
 
   if (p == NULL)
