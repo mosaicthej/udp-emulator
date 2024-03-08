@@ -64,9 +64,15 @@ typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
 } Receiver_info; 
+/* TODO: kill message should also be an argument
+add it to sender info and receiver info, also refactor the routines. */
 
 VOID_PTR_INT_CAST send_thread(void *);
 VOID_PTR_INT_CAST receive_thread(void *);
+/* TODO: Extract the routines as functions, 
+ * then use thread functions to wrap. 
+ * So sender and listener can be reused.
+ * */
 
 /* validate port numbers */
 int check_args(char *st_host, char *st_port, char *rf_port) {
@@ -362,4 +368,5 @@ if (p == NULL) handle_error("receive_thread: failed to bind/create socket");
   close(sockfd);
   return nMsgRecv;
   }
+  /* TODO: printouts should include thread number as well. */
 
