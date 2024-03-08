@@ -49,16 +49,16 @@
 #define MAX_MSG_SIZE 100
 
 /* arguments to each thread. */
-struct sender_info {
+typedef struct sender_info {
   pthread_t thread_id; /* set by pthread_create, parent has access to */
   char *send_to_host;
   char *send_to_port;
-};
+} Sender_info;
 
-struct receiver_info {
+typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
-};
+} Receiver_info; 
 
 VOID_PTR_INT_CAST send_thread(void *);
 VOID_PTR_INT_CAST receive_thread(void *);
@@ -107,8 +107,8 @@ int main(int argc, char *argv[]) {
   void *res;
   VOID_PTR_INT_CAST nRes;
 
-  struct sender_info send_info; /* no need to malloc since always 1 instance */
-  struct receiver_info recv_info;
+  Sender_info send_info; /* no need to malloc since always 1 instance */
+  Receiver_info recv_info;
 
   /* taking the command line arguments */
   if (argc != 4) {
@@ -184,7 +184,7 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
   void *spt;                  /* return val, but when pointer */
   bool done, hasProblemo;     /* flags */
   /* args */
-  struct sender_info;
+  Sender_info *send_info;
   char *send_to_host;
   char *send_to_port;
 
