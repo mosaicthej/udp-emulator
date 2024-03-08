@@ -147,6 +147,40 @@ as the specification, the sender will need to simulate the effect of
  1. propagation delay (from input argument `d`)
  2. loss probability (from input argument `p`)
 
+One note is that, being the server, it needs to figure the destination
+of the message based on receiving result.
+
+in that case, 
+
+```c
+/* in receiver thread */
+recvfrom(sockfd, buf, MAX_MSG_SIZE - 1, 0,
+            (struct sockaddr *)&their_addr, &addr_len)
+```
+note that `their_addr` is a type `struct sockaddr_storage *`
+can be casted to `struct sockaddr_in *` (ipv4), which, then,
+can extract `sin_addr` from the struct. 
+
+```c
+struct in_addr senderID = 
+  ((struct sockaddr_in *) their_addr) -> sin_addr;
+```
+
+This field can be used to uniquely identify the sender.
+Such identifier is also the same after casting and 
+extracting from the `p->ai_addr` after walking through the 
+linked list of `p` from `getaddrinfo`.
+
+```c
+struct in_addr rcvId = 
+((struct sockaddr_in *) ((p->ai_addr)->sa_data))->sin_addr;
+```
+
+Sice A is only caring about 2 end points,
+when transmitting, just find the `rcvId` that is different from the `senderID`.
+
+I'll make some helper functions to wrap such routine.
+
 ##### Simulating Delay: polling-watchdog
 
 To simulating the delay, I would simply let the server sleep for $2d$ units of
