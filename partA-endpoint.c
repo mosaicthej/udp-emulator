@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
   void *res;
   VOID_PTR_INT_CAST nRes;
 
-  struct sender_info send_info; // no need to malloc since always 1 instance
+  struct sender_info send_info; /* no need to malloc since always 1 instance */
   struct receiver_info recv_info;
 
   /* taking the command line arguments */
@@ -123,17 +123,17 @@ int main(int argc, char *argv[]) {
   if (check_args(send_to_host, send_to_port, receive_from_port) != EXIT_SUCCESS)
     return EXIT_FAILURE;
 
+  /* args has no problemo, will fill in the args */
+  send_info.send_to_host = send_to_host;
+  send_info.send_to_port = send_to_port;
+  recv_info.receive_from_port = receive_from_port;
+
   /* thread creation attributes */
   s = pthread_attr_init(&attr);
   if (s != 0)
     handle_error_en(s, "pthread_attr_init");
   /* I probably could make a `safe_call` routine/macro which wraps around
    * this is ugly*/
-
-  /* filling the information for the sender and receiver threads */
-  send_info.send_to_host = send_to_host;
-  send_info.send_to_port = send_to_port;
-  recv_info.receive_from_port = receive_from_port;
 
   /* create those 2 threads */
   s = pthread_create(&send_info.thread_id, &attr,
@@ -145,29 +145,10 @@ int main(int argc, char *argv[]) {
                      (void *(*)(void *)) & receive_thread, &recv_info);
   if (s != 0)
     handle_error_en(s, "pthread_create: receive_thread");
-
-  /* set up the address to send to */
-  struct addrinfo hints, *res;
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-  int status = getaddrinfo(send_to_host, send_to_port, &hints, &res);
-  if (status != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-    return EXIT_FAILURE;
-  }
   s = pthread_attr_destroy(&attr); /* no longer needs attr */
   if (s != 0)
     handle_error_en(s, "pthread_attr_destroy");
 
-  /* send data */
-  char *msg = "Hello, world!";
-  int numbytes =
-      sendto(sockfd, msg, strlen(msg), 0, res->ai_addr, res->ai_addrlen);
-  if (numbytes < 0) {
-    perror("sendto");
-    return EXIT_FAILURE;
-  }
   /** wait for the threads to finish, join */
   s = pthread_join(send_info.thread_id, &res);
   if (s != 0)
