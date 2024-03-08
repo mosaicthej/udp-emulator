@@ -253,6 +253,8 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
     exit(EXIT_FAILURE);
   }
 
+  nMsgSent = 0;
+  done = false;
   while (!done) {
     /* read from stdin */
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
@@ -313,7 +315,11 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
     hints.ai_family = AF_INET;      /* IPv4 */
     hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
     hints.ai_flags = AI_PASSIVE;    /* use my IP */ 
-    
+
+  if(arg == NULL) handle_error("receive_thread: arg is NULL");
+  recv_info = (Receiver_info *)arg;
+  receive_from_port = recv_info->receive_from_port;
+
     if((s=getaddrinfo(NULL, receive_from_port, &hints, &servinfo)) != 0) {
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
       exit(EXIT_FAILURE);
@@ -344,7 +350,7 @@ if (p == NULL) handle_error("receive_thread: failed to bind/create socket");
   printf("listener: waiting to recvfrom...\n"); /* DEBUG message */
   /* main loop to receive data */
   addr_len = sizeof(their_addr);
-  done = false; hasproblemo = false;
+  done = false; hasproblemo = false; nMsgRecv = 0;
   while (!done){
     if((numBytes = 
     recvfrom(sockfd, buf, MAX_MSG_SIZE-1, 0, 
