@@ -15,7 +15,7 @@
 #define INT_FMT "%d"
 #elif UINTPTR_MAX == 0xffffffffffffffff /* 64-bit */
 #define SYS_BITS 64
-#define VOID_PTR_CAST uint64_t
+#define VOID_PTR_INT_CAST uint64_t
 #define INT_FMT "%ld"
 #else /* wtf */
 #endif
@@ -54,6 +54,9 @@ struct sender_info {
 struct receiver_info {
   char *receive_from_port;
 };
+
+VOID_PTR_INT_CAST send_thread(void *);
+VOID_PTR_INT_CAST receive_thread(void *);
 
 /* validate port numbers */
 int check_args(char *st_host, char *st_port, char *rf_port) {
