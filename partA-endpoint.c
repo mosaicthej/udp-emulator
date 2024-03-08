@@ -1,8 +1,24 @@
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#if UINTPTR_MAX == 0xffff /* 16-bit */
+#define SYS_BITS 16
+#define VOID_PTR_CAST uint16_t
+#define INT_FMT "%d"
+#elif UINTPTR_MAX == 0xffffffff /* 32-bit */
+#define SYS_BITS 32
+#define VOID_PTR_CAST uint32_t
+#define INT_FMT "%d"
+#elif UINTPTR_MAX == 0xffffffffffffffff /* 64-bit */
+#define SYS_BITS 64
+#define VOID_PTR_CAST uint64_t
+#define INT_FMT "%ld"
+#else /* wtf */
+#endif
 
 /* getaddrinfo */
 #include <arpa/inet.h>
