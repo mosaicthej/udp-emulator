@@ -1,3 +1,8 @@
+/* name:  Mark Jia
+ * NSID:  mij623
+ * stuN:  11271998
+ * */
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
