@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,8 @@
 
 #define PORTMAX 65535
 #define PORTMIN 1024
+
+#define MAX_MSG_SIZE 100
 
 /* arguments to each thread. */
 struct sender_info {
@@ -155,90 +158,101 @@ int main(int argc, char *argv[]) {
     handle_error_en(s, "pthread_join: send_thread");
   nRes = (VOID_PTR_INT_CAST)res;
   printf("send_thread joined, total messages sent" INT_FMT "\n", nRes);
-  
+
   s = pthread_join(recv_info.thread_id, &res);
   if (s != 0)
     handle_error_en(s, "pthread_join: receive_thread");
   nRes = (VOID_PTR_INT_CAST)res;
   printf("receive_thread joined, total messages received: " INT_FMT "\n", nRes);
-  
+
   exit(EXIT_SUCCESS);
 }
 
-int send_thread(char *send_to_host, char *send_to_port) {
+/* sender thread
+ * set up connection,
+ *  - read input from stdin,
+ *  - send it out,
+ *  - repeat, until received the kill signal "exit" or EOF
+ * return number of messages sent.
+ *
+ * If error, exit with EXIT_FAILURE.
+ * */
+VOID_PTR_INT_CAST send_thread(void *arg) {
+  /* util */
+  VOID_PTR_INT_CAST nMsgSent; /* thread return value, number of messages sent */
+  int s;                      /* return val of sys and lib calls */
+  void *spt;                  /* return val, but when pointer */
+  bool done, hasProblemo;     /* flags */
+  /* args */
+  struct sender_info;
+  char *send_to_host;
+  char *send_to_port;
 
-  /* send data */
-  char *msg = "Hello, world!";
-  int numbytes =
-      sendto(sockfd, msg, strlen(msg), 0, res->ai_addr, res->ai_addrlen);
-  if (numbytes < 0) {
-    perror("sendto");
-    return EXIT_FAILURE;
-  }
-  /* filling the information for the sender and receiver threads */
-  send_info.send_to_host = send_to_host;
-  send_info.send_to_port = send_to_port;
-  recv_info.receive_from_port = receive_from_port;
+  /* network stuff */
+  int sockfd;
+  int numbytes;
+  char buf[MAX_MSG_SIZE];
+  struct addrinfo hints, /* hints about the type of socket */
+      *servinfo,         /* linked list of results */
+      *p;                /* to hold the nodes inside linked list */
 
+  spt = memset(&hints, 0, sizeof(hints));
+  if (spt == NULL)
+    handle_error("memset in send_thread");
 
-  /* set up the address to send to */
-  struct addrinfo hints, *res;
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-  int status = getaddrinfo(send_to_host, send_to_port, &hints, &res);
-  if (status != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-    return EXIT_FAILURE;
+  hints.ai_family = AF_INET;      /* IPv4 */
+  hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
+
+  if ((s = getaddrinfo(send_to_host, send_to_port, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+  } /* obtain the addr info */
+
+  /* loop through the result and make a socket */
+  done = false;
+  hasProblemo = false;
+  for (p = servinfo; p != NULL && !done; p = p->ai_next) {
+    sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (sockfd < 0) {
+      perror("socket");
+      hasProblemo = true;
+    }
+    done = !hasProblemo; /* if no problem, done
+      otherwise go to next socket until run out */
   }
 
+  if (p == NULL) { /* if no socket is created */
+    fprintf(stderr, "send_thread: failed to create socket\n");
+    exit(EXIT_FAILURE);
+  }
 
-  /* create a socket */
-  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sockfd < 0) {
-    perror("socket");
-    return EXIT_FAILURE;
-  }
- 
+  while (!done) {
+    /* read from stdin */
+    if (fgets(buf, sizeof(buf), stdin) == NULL) {
+      if (!feof(stdin))
+        perror("fgets"); /* some other shits happened in stdin */
+      done = true;
+      hasProblemo = true;
+    }
 
-int receive_thread(char *receive_from_port) {
-VOID_PTR_INT_CAST receive_thread(void * arg) {
-  /* create a socket */
-  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sockfd < 0) {
-    perror("socket");
-    return EXIT_FAILURE;
+    if (!hasProblemo) {
+      /* send data, if input is good */
+      numbytes = sendto(sockfd, buf, strlen(buf), 0, p->ai_addr, p->ai_addrlen);
+      if (numbytes < 0) {
+        perror("sendto");
+        done = true; hasProblemo = true;
+        exit(EXIT_FAILURE);
+      }
+      nMsgSent++;
+    }
+    done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit")==0; /* kill sig*/
   }
-  /* set up the address to receive from */
-  struct addrinfo hints, *res;
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-  hints.ai_flags = AI_PASSIVE;
-  int status = getaddrinfo(NULL, receive_from_port, &hints, &res);
-  if (status != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-    return EXIT_FAILURE;
-  }
-  /* bind the socket */
-  status = bind(sockfd, res->ai_addr, res->ai_addrlen);
-  if (status < 0) {
-    perror("bind");
-    return EXIT_FAILURE;
-  }
-  /* receive data */
-  char buf[100];
-  struct sockaddr_storage their_addr;
-  socklen_t addr_len = sizeof(their_addr);
-  int numbytes = recvfrom(sockfd, buf, sizeof(buf) - 1, 0,
-                         (struct sockaddr *)&their_addr, &addr_len);
-  if (numbytes < 0) {
-    perror("recvfrom");
-    return EXIT_FAILURE;
-  }
-  buf[numbytes] = '\0';
-  printf("received: %s\n", buf);
-  freeaddrinfo(res);
+
+  /* done main loop */
+  freeaddrinfo(servinfo);
+  printf("send_thread: sent " INT_FMT " messages\n", nMsgSent);
   close(sockfd);
-  return EXIT_SUCCESS;
+
+  return nMsgSent;
 }
+
