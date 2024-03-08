@@ -63,14 +63,14 @@ typedef struct sender_info {
 typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
-} Receiver_info; 
+} Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
 
 VOID_PTR_INT_CAST send_thread(void *);
 VOID_PTR_INT_CAST receive_thread(void *);
-/* TODO: Extract the routines as functions, 
- * then use thread functions to wrap. 
+/* TODO: Extract the routines as functions,
+ * then use thread functions to wrap.
  * So sender and listener can be reused.
  * */
 
@@ -98,7 +98,7 @@ int check_args(char *st_host, char *st_port, char *rf_port) {
   return EXIT_SUCCESS;
 }
 
-void * get_in_addr(struct sockaddr *sa) {
+void *get_in_addr(struct sockaddr *sa) {
   if (sa->sa_family == AF_INET) {
     /* this is ipv4 */
     return &(((struct sockaddr_in *)sa)->sin_addr);
@@ -215,14 +215,14 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
       *p;                /* to hold the nodes inside linked list */
 
   /* extracting the arguments */
-  if(arg == NULL) handle_error("send_thread: arg is NULL");
+  if (arg == NULL)
+    handle_error("send_thread: arg is NULL");
   send_info = (Sender_info *)arg;
   send_to_host = send_info->send_to_host;
   send_to_port = send_info->send_to_port;
   if (send_to_host == NULL || send_to_port == NULL)
     handle_error("send_thread: send_to_host or send_to_port is NULL");
-  
-  
+
   spt = memset(&hints, 0, sizeof(hints));
   if (spt == NULL)
     handle_error("memset in send_thread");
@@ -269,12 +269,13 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
       numbytes = sendto(sockfd, buf, strlen(buf), 0, p->ai_addr, p->ai_addrlen);
       if (numbytes < 0) {
         perror("sendto");
-        done = true; hasProblemo = true;
+        done = true;
+        hasProblemo = true;
         exit(EXIT_FAILURE);
       }
       nMsgSent++;
     }
-    done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit")==0; /* kill sig*/
+    done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit") == 0; /* kill sig*/
   }
 
   /* done main loop */
@@ -285,48 +286,51 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
   return nMsgSent;
 }
 
-
 /* receiver thread
-* set up connection,
-* - receive data,
-*  - print it out,
-*  - repeat, until received the kill signal "exit" or EOF
-*  return number of messages received.
+ * set up connection,
+ * - receive data,
+ *  - print it out,
+ *  - repeat, until received the kill signal "exit" or EOF
+ *  return number of messages received.
  * */
-  VOID_PTR_INT_CAST receive_thread(void *arg) {
-    /* util */
-    VOID_PTR_INT_CAST nMsgRecv; /* thread return value, num msg received */
-    int s;                      /* return val of sys and lib calls */
-    void * spt;                 /* return val, but when pointer */
-    bool done, hasproblemo;     /* flags */ 
-    /* args */
-    Receiver_info *recv_info;
-    char *receive_from_port;
-    /* network */ 
-    int sockfd; int numBytes; char buf[MAX_MSG_SIZE];
-    struct addrinfo hints, *servinfo, *p;
-    socklen_t addr_len;
-    struct sockaddr_storage their_addr;
+VOID_PTR_INT_CAST receive_thread(void *arg) {
+  /* util */
+  VOID_PTR_INT_CAST nMsgRecv; /* thread return value, num msg received */
+  int s;                      /* return val of sys and lib calls */
+  void *spt;                  /* return val, but when pointer */
+  bool done, hasproblemo;     /* flags */
+  /* args */
+  Receiver_info *recv_info;
+  char *receive_from_port;
+  /* network */
+  int sockfd;
+  int numBytes;
+  char buf[MAX_MSG_SIZE];
+  struct addrinfo hints, *servinfo, *p;
+  socklen_t addr_len;
+  struct sockaddr_storage their_addr;
   char their_addr_st[INET_ADDRSTRLEN];
 
-    
-    spt = memset(&hints, 0, sizeof(hints));
-    if (spt == NULL) handle_error("memset in receive_thread");
-    hints.ai_family = AF_INET;      /* IPv4 */
-    hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
-    hints.ai_flags = AI_PASSIVE;    /* use my IP */ 
+  spt = memset(&hints, 0, sizeof(hints));
+  if (spt == NULL)
+    handle_error("memset in receive_thread");
+  hints.ai_family = AF_INET;      /* IPv4 */
+  hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
+  hints.ai_flags = AI_PASSIVE;    /* use my IP */
 
-  if(arg == NULL) handle_error("receive_thread: arg is NULL");
+  if (arg == NULL)
+    handle_error("receive_thread: arg is NULL");
   recv_info = (Receiver_info *)arg;
   receive_from_port = recv_info->receive_from_port;
 
-    if((s=getaddrinfo(NULL, receive_from_port, &hints, &servinfo)) != 0) {
-      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-      exit(EXIT_FAILURE);
-    } /* obtain the addr info */
+  if ((s = getaddrinfo(NULL, receive_from_port, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+  } /* obtain the addr info */
 
-    /* find socket to bind */
-  done = false; hasproblemo = false;
+  /* find socket to bind */
+  done = false;
+  hasproblemo = false;
   for (p = servinfo; p != NULL && !done; p = p->ai_next) {
     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (sockfd < 0) {
@@ -340,39 +344,40 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
       perror("receiver thread: bind");
       hasproblemo = true;
     }
-    done = done && !hasproblemo;  /* both action needs to be successful */
+    done = done && !hasproblemo; /* both action needs to be successful */
   }
 
-if (p == NULL) handle_error("receive_thread: failed to bind/create socket");
+  if (p == NULL)
+    handle_error("receive_thread: failed to bind/create socket");
 
   freeaddrinfo(servinfo); /* no longer needs servinfo */
 
   printf("listener: waiting to recvfrom...\n"); /* DEBUG message */
   /* main loop to receive data */
   addr_len = sizeof(their_addr);
-  done = false; hasproblemo = false; nMsgRecv = 0;
-  while (!done){
-    if((numBytes = 
-    recvfrom(sockfd, buf, MAX_MSG_SIZE-1, 0, 
-            (struct sockaddr *)&their_addr, &addr_len)) < 0){
-    perror("receive_thread: recvfrom");
-    hasproblemo = true;}
+  done = false;
+  hasproblemo = false;
+  nMsgRecv = 0;
+  while (!done) {
+    if ((numBytes = recvfrom(sockfd, buf, MAX_MSG_SIZE - 1, 0,
+                             (struct sockaddr *)&their_addr, &addr_len)) < 0) {
+      perror("receive_thread: recvfrom");
+      hasproblemo = true;
+    }
     /* got a message! (this is blocking via recvfrom) */
 
-    printf("listener: got packet from %s\n", 
-      inet_ntop(their_addr.ss_family, 
-        get_in_addr((struct sockaddr *)&their_addr), 
-                their_addr_st, sizeof their_addr_st));
+    printf("listener: got packet from %s\n",
+           inet_ntop(their_addr.ss_family,
+                     get_in_addr((struct sockaddr *)&their_addr), their_addr_st,
+                     sizeof their_addr_st));
     printf("listener: packet is %d bytes long\n", numBytes);
-      buf[numBytes] = '\0'; /* swap the end with \0 */
-      printf("listener: packet contains \"%s\"\n", buf);
-  nMsgRecv++;
-  done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit")==0; /* kill sig*/
-
-    }
+    buf[numBytes] = '\0'; /* swap the end with \0 */
+    printf("listener: packet contains \"%s\"\n", buf);
+    nMsgRecv++;
+    done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit") == 0; /* kill sig*/
+  }
   printf("receive_thread: done, received " INT_FMT " messages\n", nMsgRecv);
   close(sockfd);
   return nMsgRecv;
-  }
-  /* TODO: printouts should include thread number as well. */
-
+}
+/* TODO: printouts should include thread number as well. */
