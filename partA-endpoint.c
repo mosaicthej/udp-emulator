@@ -115,9 +115,6 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  char *send_to_host = argv[1];
-  char *send_to_port = argv[2];
-  char *receive_from_port = argv[3];
   send_to_host = argv[1];
   send_to_port = argv[2];
   receive_from_port = argv[3];
@@ -144,13 +141,6 @@ int main(int argc, char *argv[]) {
   if (s != 0)
     handle_error_en(s, "pthread_create: send_thread");
 
-int send_thread(char *send_to_host, char *send_to_port) {
-  /* create a socket */
-  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sockfd < 0) {
-    perror("socket");
-    return EXIT_FAILURE;
-  }
   s = pthread_create(&recv_info.thread_id, &attr,
                      (void *(*)(void *)) & receive_thread, &recv_info);
   if (s != 0)
@@ -190,14 +180,18 @@ int send_thread(char *send_to_host, char *send_to_port) {
     handle_error_en(s, "pthread_join: receive_thread");
   nRes = (VOID_PTR_INT_CAST)res;
   printf("receive_thread joined, total messages received: " INT_FMT "\n", nRes);
-
-  freeaddrinfo(res);
-  close(sockfd);
-  return EXIT_SUCCESS;
   
   exit(EXIT_SUCCESS);
 }
 
+int send_thread(char *send_to_host, char *send_to_port) {
+  /* create a socket */
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sockfd < 0) {
+    perror("socket");
+    return EXIT_FAILURE;
+  }
+ 
 
 int receive_thread(char *receive_from_port) {
 VOID_PTR_INT_CAST receive_thread(void * arg) {
