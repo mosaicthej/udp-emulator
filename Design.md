@@ -181,6 +181,14 @@ when transmitting, just find the `rcvId` that is different from the `senderID`.
 
 I'll make some helper functions to wrap such routine.
 
+However, since its listening on 2 different endpoints, and involves some
+interaction with the queue.
+I'll give up extracting extract the routines as functions, but directly reuse 
+the code by copy-pasting.
+
+I'll hold on to the oppurtunity for possible extraction 
+(maybe macros can help me?).
+
 ##### Simulating Delay: polling-watchdog
 
 To simulating the delay, I would simply let the server sleep for $2d$ units of
