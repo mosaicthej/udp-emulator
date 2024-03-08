@@ -201,6 +201,15 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
       *servinfo,         /* linked list of results */
       *p;                /* to hold the nodes inside linked list */
 
+  /* extracting the arguments */
+  if(arg == NULL) handle_error("send_thread: arg is NULL");
+  send_info = (Sender_info *)arg;
+  send_to_host = send_info->send_to_host;
+  send_to_port = send_info->send_to_port;
+  if (send_to_host == NULL || send_to_port == NULL)
+    handle_error("send_thread: send_to_host or send_to_port is NULL");
+  
+  
   spt = memset(&hints, 0, sizeof(hints));
   if (spt == NULL)
     handle_error("memset in send_thread");
