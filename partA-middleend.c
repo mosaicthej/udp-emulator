@@ -124,12 +124,16 @@ typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
 
+  QUEUE *messagesQ; /* list of messages */
+  pthread_mutex_t *QLock; /* lock for the list */
+  VOID_PTR_INT_CAST nRecv1;
+  VOID_PTR_INT_CAST nRecv2; /* statistics */
 } Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
 
-VOID_PTR_INT_CAST receive_thread(void *);
 void* send_thread(void *);
+void* receive_thread(void *);
 /* TODO: Extract the routines as functions,
  * then use thread functions to wrap.
  * So sender and listener can be reused.
@@ -271,7 +275,10 @@ int main(int argc, char *argv[]) {
   send_info.propgDelay = delay;
   send_info.messagesQ = messagesQ;
   send_info.QLock = &QLock;
+
   recv_info.receive_from_port = receive_from_port;
+  recv_info.messagesQ = messagesQ;
+  recv_info.QLock = &QLock;
 
   /* thread creation attributes */
   s = pthread_attr_init(&attr);
