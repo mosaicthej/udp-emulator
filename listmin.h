@@ -49,7 +49,7 @@ typedef struct _LIST {
  *
  * This function may fail, if the maximum number of LISTs has been reached
  */
-LIST *ListCreate();
+LIST *ListCreate(void);
 
 /*
  * The ListPrepend procedure adds a new item to the start of the list and makes

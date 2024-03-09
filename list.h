@@ -64,7 +64,7 @@ typedef void (*itemFree)(void*);
  *
  * This function may fail, if the maximum number of LISTs has been reached
  */
-LIST *ListCreate();
+LIST *ListCreate(void);
 
 
 /*
