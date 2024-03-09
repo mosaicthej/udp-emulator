@@ -81,28 +81,52 @@ VOID_PTR_INT_CAST receive_thread(void *);
  * */
 
 /* validate port numbers */
-int check_args(char *st_host, char *st_port, char *rf_port) {
-  int st_p = atoi(st_port);
-  int rf_p = atoi(rf_port);
+int check_args(char* p, char* d, char* listen_on, char* e1, char* e2){
+  int port; float prob; int delay;
+  char* e1n, *e2n; int e1p, e2p;
+  int s; 
 
-  if (strlen(st_host) == 0) {
-    fprintf(stderr, "send-to-host cannot be empty\n");
+  port = atoi(listen_on);
+  prob = atof(p);
+  delay = atoi(d);
+
+  if (port < PORTMIN || port > PORTMAX) {
+    fprintf(stderr, "port must between %d and %d\n", PORTMIN, PORTMAX);
+           
+    return EXIT_FAILURE;
+  }
+  if (prob < 0.0 || prob > 1.0) {
+    fprintf(stderr, "probility must between 0.0 and 1.0\n");
+    return EXIT_FAILURE;
+  }
+  if (delay < 0 || delay > MAX_DELAY) {
+    fprintf(stderr, "delay must between 0 and %d (s)\n", MAX_DELAY);
+    return EXIT_FAILURE;
+  }
+  if (e1 == NULL || e2 == NULL) {
+    fprintf(stderr, "endpoint-1 and endpoint-2 cannot be NULL\n");
+    return EXIT_FAILURE;
+  }
+  
+  s = sscanf(e1, "%[^:]:%d", e1n, &e1p);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-1 must be in format <hostname>:<port>\n");
+    return EXIT_FAILURE;
+  }
+  s = sscanf(e2, "%[^:]:%d", e2n, &e2p);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-2 must be in format <hostname>:<port>\n");
+    return EXIT_FAILURE;
+  }
+  
+  if (e1p < PORTMIN || e1p > PORTMAX || e2p < PORTMIN || e2p > PORTMAX){
+    fprintf(stderr, "endpoint port must between %d and %d\n", PORTMIN, PORTMAX);
     return EXIT_FAILURE;
   }
 
-  if (st_p < PORTMIN || st_p > PORTMAX) {
-    fprintf(stderr, "send-to-port must be between %d and %d\n", PORTMIN,
-            PORTMAX);
-    return EXIT_FAILURE;
-  }
-
-  if (rf_p < PORTMIN || rf_p > PORTMAX) {
-    fprintf(stderr, "receive-from-port must be between %d and %d\n", PORTMIN,
-            PORTMAX);
-    return EXIT_FAILURE;
-  }
   return EXIT_SUCCESS;
 }
+
 
 void *get_in_addr(struct sockaddr *sa) {
   if (sa->sa_family == AF_INET) {
@@ -127,38 +151,71 @@ void *get_in_addr(struct sockaddr *sa) {
 int main(int argc, char *argv[]) {
   int s; /* keep track status of system calls */
 
-  char *send_to_host, *send_to_port, *receive_from_port; /* args */
+  /* cmd arguments */
+  float drop_prob; /* drop probility */
+  int delay;       /* delay in ms */
+  char *receive_from_port;
+  char *endpoint1, *endpoint2; /* network locs */
+  
+  /* theirs addr */
+  char *endpoint1_host, *endpoint2_host;
+  char *send_to_port1, *send_to_port2;
 
   /* pthread related things */
   pthread_attr_t attr;
   void *res;
-  VOID_PTR_INT_CAST nRes;
+  VOID_PTR_INT_CAST nRes, nRes2;
 
   Sender_info send_info; /* no need to malloc since always 1 instance */
   Receiver_info recv_info;
 
-  LIST *messages; /* list of messages */
-  messages = ListCreate();
+  QUEUE *messagesQ; /* QUEUE of messages */
 
   /* taking the command line arguments */
-  if (argc != 4) {
-    fprintf(stderr,
-            "Usage: %s <send-to-host> <send-to-port> <receive-from-port>\n",
-            argv[0]);
-    return EXIT_FAILURE;
+  if (argc != 6) {
+    fprintf(stderr, 
+    "usage: %s <drop-prob> <delay> <listen-on-port> <endpoint-1> <endpoint-2>\n"
+            , argv[0]);
+    exit(EXIT_FAILURE);
   }
 
-  send_to_host = argv[1];
-  send_to_port = argv[2];
-  receive_from_port = argv[3];
-
   /* error checkings */
-  if (check_args(send_to_host, send_to_port, receive_from_port) != EXIT_SUCCESS)
+  if (check_args(argv[1], argv[2], argv[3], argv[4], argv[5]) 
+        != EXIT_SUCCESS)
     return EXIT_FAILURE;
 
+
   /* args has no problemo, will fill in the args */
-  send_info.send_to_host = send_to_host;
-  send_info.send_to_port = send_to_port;
+  drop_prob = atof(argv[1]);
+  delay = atoi(argv[2]);
+  receive_from_port = argv[3];
+  s = sscanf(argv[4], "%[^:]:%s", endpoint1_host, send_to_port1);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-1 must be in format <hostname>:<port>\n");
+    exit(EXIT_FAILURE);
+  }
+  s = sscanf(argv[5], "%[^:]:%s", endpoint2_host, send_to_port2);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-2 must be in format <hostname>:<port>\n");
+    exit(EXIT_FAILURE);
+  }
+
+  messagesQ = QueueCreate();
+  if (messagesQ == NULL) {
+    fprintf(stderr, "QueueCreate failed\n");
+    exit(EXIT_FAILURE);
+  }
+  static pthread_mutex_t QLock = PTHREAD_MUTEX_INITIALIZER; 
+  /* simple static activate. This is NOT mixed decl and definition,
+   * it is the macro way specified by POSIX to init a lock */
+  
+  send_info.send_to_host1 = endpoint1_host;
+  send_info.send_to_port1 = send_to_port1;
+  send_info.send_to_host2 = endpoint2_host;
+  send_info.send_to_port2 = send_to_port2;
+  send_info.propgDelay = delay;
+  send_info.messagesQ = messagesQ;
+  send_info.QLock = &QLock;
   recv_info.receive_from_port = receive_from_port;
 
   /* thread creation attributes */
@@ -186,14 +243,16 @@ int main(int argc, char *argv[]) {
   s = pthread_join(send_info.thread_id, &res);
   if (s != 0)
     handle_error_en(s, "pthread_join: send_thread");
-  nRes = (VOID_PTR_INT_CAST)res;
-  printf("send_thread joined, total messages sent" INT_FMT "\n", nRes);
+  nRes = send_info.nSent1to2; nRes2 = send_info.nSent2to1;
+  printf("send_thread joined, total messages sent from 1 to 2: " INT_FMT \
+         " and total messages sent from 2 to 1: " INT_FMT "\n", nRes, nRes2);
 
   s = pthread_join(recv_info.thread_id, &res);
   if (s != 0)
     handle_error_en(s, "pthread_join: receive_thread");
-  nRes = (VOID_PTR_INT_CAST)res;
-  printf("receive_thread joined, total messages received: " INT_FMT "\n", nRes);
+  nRes = recv_info.nRecv1; nRes2 = recv_info.nRecv2;
+  printf("receive_thread joined, total messages received from 1: " INT_FMT \
+         " and total messages received from 2: " INT_FMT "\n", nRes, nRes2);
 
   exit(EXIT_SUCCESS);
 }
