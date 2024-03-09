@@ -165,7 +165,9 @@ need to free both ChannelMsg and the msg inside it.                            \
 #define PORTMAX 65535
 #define PORTMIN 1024
 
-#define MAX_MSG_SIZE 100
+#define MAX_MSG_SIZE 256
+#define MAX_ADDR_LEN 128
+#define MAX_PORT_LEN 32
 
 #define MAX_DELAY 10 /* seconds */
 
@@ -186,6 +188,7 @@ typedef struct sender_info {
 
   VOID_PTR_INT_CAST nSent1to2;
   VOID_PTR_INT_CAST nSent2to1; /* statistics */
+  VOID_PTR_INT_CAST retVal;
 } Sender_info;
 
 typedef struct receiver_info {
@@ -199,6 +202,7 @@ typedef struct receiver_info {
   char *killMsg;          /* message to end the conversation */
   VOID_PTR_INT_CAST nRecv1;
   VOID_PTR_INT_CAST nRecv2; /* statistics */
+  VOID_PTR_INT_CAST retVal;
 } Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
@@ -220,7 +224,7 @@ int check_args(char *p, char *d, char *listen_on, char *e1, char *e2) {
   int port;
   float prob;
   int delay;
-  char *e1n, *e2n;
+  char e1n[MAX_ADDR_LEN], e2n[MAX_ADDR_LEN];
   int e1p, e2p;
   int s;
 
@@ -291,12 +295,11 @@ int main(int argc, char *argv[]) {
   /* cmd arguments */
   float drop_prob; /* drop probility */
   int delay;       /* delay in ms */
-  char *receive_from_port;
-  char *endpoint1, *endpoint2; /* network locs */
+  char* receive_from_port;
 
   /* theirs addr */
-  char *endpoint1_host, *endpoint2_host;
-  char *send_to_port1, *send_to_port2;
+  char endpoint1_host[MAX_ADDR_LEN], endpoint2_host[MAX_ADDR_LEN];
+  char send_to_port1[MAX_PORT_LEN], send_to_port2[MAX_PORT_LEN];
 
   /* pthread related things */
   pthread_attr_t attr;
@@ -353,12 +356,14 @@ int main(int argc, char *argv[]) {
   send_info.messagesQ = messagesQ;
   send_info.QLock = &QLock;
   send_info.killMsg = "exit";
+  send_info.retVal = 0;
 
   recv_info.receive_from_port = receive_from_port;
   recv_info.messagesQ = messagesQ;
   recv_info.QLock = &QLock;
   recv_info.killMsg = "exit";
   recv_info.drop_prob = drop_prob;
+  recv_info.retVal = 0;
 
   /* thread creation attributes */
   s = pthread_attr_init(&attr);
@@ -421,7 +426,7 @@ void *send_thread(void *arg) {
   VOID_PTR_INT_CAST *nMsgSentRet2;
   VOID_PTR_INT_CAST *ret;                /* return value */
   int s;                                 /* return val of sys and lib calls */
-  void *spt;                             /* return val, but when pointer */
+  /* void *spt; */                       /* return val, but when pointer */
   bool done, done2, hasProblemo, hasMsg; /* flags */
   /* args */
   Sender_info *send_info;
@@ -460,6 +465,7 @@ void *send_thread(void *arg) {
   messagesQ = send_info->messagesQ;
   QLock = send_info->QLock;
   kill = send_info->killMsg;
+  ret = &(send_info->retVal);
 
   if (send_to_host1 == NULL || send_to_port1 == NULL || send_to_host2 == NULL ||
       send_to_port2 == NULL)
@@ -492,7 +498,7 @@ void *send_thread(void *arg) {
      * Otherwise, send the message out, and free it.
      * */
     while (!hasMsg) {
-      sleep(send_info->propgDelay * 2);
+      sleep(delay * 2);
       pthread_mutex_lock(QLock);
       hasMsg = (Qmsg = QDequeue(messagesQ)) != NULL;
     }
@@ -519,6 +525,7 @@ void *send_thread(void *arg) {
 #else
     if ((msg_to == to_addr1) && (!done)) {
       do_sendto(sockfd1, Qmsg->msg, psend, done);
+      if(hasProblemo) done = true;
       do_testkill(Qmsg->msg, kill, done);
       do_free_msg(Qmsg);
       nMsgSent1++;
@@ -569,7 +576,7 @@ void *receive_thread(void *arg) {
   /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgRecvRet1, *nMsgRecvRet2, *ret;
   int s;                                  /* return val of sys and lib calls */
-  void *spt;                              /* return val, but when pointer */
+  /* void *spt; */                        /* return val, but when pointer */
   bool done, done2, hasproblemo, dropped; /* flags */
   /* args */
   Receiver_info *recv_info;
@@ -577,12 +584,12 @@ void *receive_thread(void *arg) {
   float drop_prob, rnd;   /* drop probility */
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
-  char *kill;
+  char *killMsg;
 
   /* network */
   int sockfd;
   int numBytes;
-  in_addr_t from_addr1, from_addr2, msg_from, msg_to, tmp_addr;
+  in_addr_t from_addr1, from_addr2, tmp_addr;
 #ifdef MALLOCMSG
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
   char rcvBuf[MAX_MSG_SIZE];
@@ -599,6 +606,14 @@ void *receive_thread(void *arg) {
     handle_error("receive_thread: arg is NULL");
   recv_info = (Receiver_info *)arg;
   receive_from_port = recv_info->receive_from_port;
+  drop_prob = recv_info->drop_prob;
+  messagesQ = recv_info->messagesQ;
+  QLock = recv_info->QLock;
+  killMsg = recv_info->killMsg;
+  nMsgRecvRet1 = &(recv_info->nRecv1);
+  nMsgRecvRet2 = &(recv_info->nRecv2);
+  ret = &(recv_info->retVal);
+  
 #ifndef CONNMACRO
   handle_error("CONNMACRO is not defined");
 #else
@@ -641,11 +656,11 @@ void *receive_thread(void *arg) {
   printf("listener: waiting to recvfrom...\n"); /* DEBUG message */
   /* main loop to receive data */
   addr_len = sizeof(their_addr);
-  done = false;
+  done = false; done2 = false;
   hasproblemo = false;
   nMsgRecv1 = 0;
   nMsgRecv2 = 0;
-  while (!done) {
+  while (!done && !done2){
     if ((numBytes = recvfrom(sockfd, rcvBuf, MAX_MSG_SIZE - 1, 0,
                              (struct sockaddr *)&their_addr, &addr_len)) < 0) {
       perror("receive_thread: recvfrom");
@@ -702,8 +717,9 @@ void *receive_thread(void *arg) {
       pthread_mutex_lock(QLock);
       QEnqueue(messagesQ, Qmsg);
       pthread_mutex_unlock(QLock);
-
-      do_testkill(rcvBuf, kill, done); /* see if it's kill */
+      
+      if(Qmsg->from == from_addr1) do_testkill(rcvBuf, killMsg, done);
+      else do_testkill(rcvBuf, killMsg, done2);
     }
   }
   /* done main loop */
