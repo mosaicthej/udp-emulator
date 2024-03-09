@@ -23,7 +23,9 @@
 #define SYS_BITS 64
 #define VOID_PTR_INT_CAST uint64_t
 #define INT_FMT "%ld"
-#else /* wtf */
+#else 
+#define VOID_PTR_INT_CAST int /* default int */
+#define INT_FMT "%d"
 #endif
 
 
