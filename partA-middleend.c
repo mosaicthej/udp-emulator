@@ -124,7 +124,6 @@ need to free both ChannelMsg and the msg inside it.                            \
       hasProblemo = true;                                                      \
       (done) = true;                                                           \
     }                                                                          \
-                                                                               \
   } while (0)
 
 #define do_testkill(msg, kill, done)                                           \
@@ -181,6 +180,8 @@ typedef struct sender_info {
 typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
+
+  float drop_prob; /* drop probility */
 
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
@@ -346,6 +347,7 @@ int main(int argc, char *argv[]) {
   recv_info.messagesQ = messagesQ;
   recv_info.QLock = &QLock;
   recv_info.killMsg = "exit";
+  recv_info.drop_prob = drop_prob;
 
   /* thread creation attributes */
   s = pthread_attr_init(&attr);
