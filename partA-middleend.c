@@ -54,6 +54,44 @@
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
+#define CONNMACRO
+
+#define do_setup_hints(s, c, n)                                                    \
+  do {                                                                         \
+    if (memset(&s, c, n) == NULL)                                                \
+      handle_error("memset in send_thread");                                    \
+    s.ai_family = AF_INET; /* IPv4 */ \
+    s.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */ \
+  } while (0)
+
+/* temp, sendName, sendPort, hints, servinfo */
+#define do_getaddrinfo(t, n, p, h, s) \
+do { \
+if((t = getaddrinfo(n, p, &h, &s)) != 0) { \
+  fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(t)); \
+  exit(EXIT_FAILURE); \
+} \
+} while(0)
+
+/* p, servinfo, sockfd */
+#define do_socket_walk(p, s, f)\
+do{\
+  for(p = s; p != NULL; p = p->ai_next) { \
+    f = socket(p->ai_family, p->ai_socktype, p->ai_protocol); \
+    if (f < 0) { \
+      perror("socket"); \
+      continue; \
+    } \
+    break; \
+  } \
+ \
+  if (p == NULL) { /* if no socket is created */\
+    fprintf(stderr, "send_thread: failed to create socket\n");\
+    exit(EXIT_FAILURE);\
+  }\
+} while(0)
+
+
 #define PORTMAX 65535
 #define PORTMIN 1024
 
@@ -326,6 +364,7 @@ void* send_thread(void *arg) {
   nMsgSentRet = &(send_info->nSent1to2); /* return value */
   
   /* set up the hints */
+  #ifndef CONNMACRO
   spt = memset(&hints1, 0, sizeof(hints1));
   if (spt == NULL)
     handle_error("memset in send_thread");
@@ -379,7 +418,17 @@ void* send_thread(void *arg) {
     fprintf(stderr, "send_thread: failed to create socket\n");
     exit(EXIT_FAILURE);
   }
+  #else
 
+  do_setup_hints(hints1, 0, sizeof(hints1));
+  do_getaddrinfo(s, send_to_host1, send_to_port1, hints1, servinfo1);
+  do_socket_walk(p1, servinfo1, sockfd1);
+  
+  do_setup_hints(hints2, 0, sizeof(hints2));
+  do_getaddrinfo(s, send_to_host2, send_to_port2, hints2, servinfo2);
+  do_socket_walk(p2, servinfo2, sockfd2);
+
+  #endif
   
   nMsgSent = 0;
   done = false;
