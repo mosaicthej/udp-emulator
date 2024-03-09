@@ -54,6 +54,15 @@ int main(void){
   resP = ListTrim(l0);
   if (resP==NULL) printf("expected got to end (2), yes it is\n");
 
+  res = ListPrepend(l0, b); safe_res(0);/* add cow */
+  res = ListPrepend(l0, c); safe_res(0);/* add milk */
+  if (ListCount(l0) != 2) printf("Error: ListCount = %d\n", ListCount(l0));
+  resP = ListTrim(l0); safe_resP(resP);/* cow */
+  printf("expected cow, resP = %s\n", (char *)resP);
+  resP = ListTrim(l0); safe_resP(resP);/* milk */
+  printf("expected milk, resP = %s\n", (char *)resP);
+
+
   printf("All tests passed\n");
 
   return 0;
