@@ -41,6 +41,9 @@
 /* list library */
 #include <queue.h>
 
+#define MALLOCMSG /* messages are malloced, 
+otherwise, I'd got static data structure to hold them */
+
 #define handle_error_en(en, msg)                                               \
   do {                                                                         \
     errno = en;                                                                \
@@ -120,6 +123,7 @@ typedef struct sender_info {
 typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
+
 } Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
@@ -431,9 +435,17 @@ void* send_thread(void *arg) {
   #endif
   
   nMsgSent = 0;
-  done = false;
+  done = false; hasMsg = false;
   while (!done) {
-    /* read from stdin */
+    /* sleep for 2xdelay, check the queue 
+    * if the result of dequeue is NULL, then sleep again.
+    * Otherwise, send the message out, and free it.
+  * */
+    while(!hasMsg){
+    sleep(send_info->propgDelay * 2);
+    pthread_mutex_lock(QLock);
+    hasMsg = (buf = QDequeue(messagesQ))!=NULL;
+    }
 
     
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
