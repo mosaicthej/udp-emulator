@@ -1,6 +1,21 @@
 #include <stdio.h>
+#ifdef TESTLISTMIN
 #include <listmin.h>
+#elif TESTQUEUE
+#include <queue.h>
+#else
+#include <list.h> /* default to original list if unspecified */
+#endif /* lol I love this, macro is a paradigm lol */
 #include <stdlib.h>
+
+#ifdef TESTQUEUE 
+/* testing the queues */
+#define LIST QUEUE /* alias now*/
+#define ListCreate QueueCreate
+#define ListPrepend QEnqueue
+#define ListTrim QDequeue
+#define ListCount QCount
+#endif
 
 #define safe_res(x) if (res != x) { printf("Error: res = %d\n", res); exit(1);}
 #define safe_resP(x) if (x==NULL) { printf("Error: resP = NULL\n"); exit(1); }
@@ -44,3 +59,12 @@ int main(void){
   return 0;
 
 }
+
+#ifdef TESTQUEUE /* remove aliases */
+/* testing the queues */
+#undef LIST
+#undef ListCreate 
+#undef ListPrepend 
+#undef ListTrim 
+#undef ListCount 
+#endif
