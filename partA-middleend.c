@@ -399,6 +399,7 @@ void *send_thread(void *arg) {
       sleep(delay * 2);
       pthread_mutex_lock(QLock);
       hasMsg = (Qmsg = QDequeue(messagesQ)) != NULL;
+      pthread_mutex_unlock(QLock);
     }
     /* we have a message here (on Qmsg) */
     /* need to find which to go to */
@@ -451,6 +452,7 @@ void *send_thread(void *arg) {
       exit(EXIT_FAILURE);
     }
 #endif
+  hasMsg = false; 
   }
   /* done main loop */
   *nMsgSentRet1 = nMsgSent1;
@@ -618,7 +620,7 @@ void *receive_thread(void *arg) {
       
       if(Qmsg->from == from_addr1) do_testkill(rcvBuf, killMsg, done);
       else do_testkill(rcvBuf, killMsg, done2);
-    }
+    } else printf("listener: packet dropped :P\n"); /* dropped */ 
   }
   /* done main loop */
   do_done_cleanup(servinfo, sockfd);
