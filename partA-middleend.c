@@ -63,7 +63,7 @@ need to free both ChannelMsg and the msg inside it.                            \
 
 #define do_setup_hints(s, c, n)                                                \
   do {                                                                         \
-    if (memset(&s, c, n) == NULL)                                              \
+    if (memset(&(s), (c), (n)) == NULL)                                        \
       handle_error("memset in send_thread");                                   \
     s.ai_family = AF_INET;      /* IPv4 */                                     \
     s.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */                           \
@@ -72,7 +72,7 @@ need to free both ChannelMsg and the msg inside it.                            \
 /* temp, sendName, sendPort, hints, servinfo */
 #define do_getaddrinfo(t, n, p, h, s)                                          \
   do {                                                                         \
-    if ((t = getaddrinfo(n, p, &h, &s)) != 0) {                                \
+    if (((t) = getaddrinfo((n), (p), &(h), &(s))) != 0) {                      \
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(t));                   \
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
@@ -81,16 +81,16 @@ need to free both ChannelMsg and the msg inside it.                            \
 /* p, servinfo, sockfd */
 #define do_socket_walk(p, s, f)                                                \
   do {                                                                         \
-    for (p = s; p != NULL; p = p->ai_next) {                                   \
-      f = socket(p->ai_family, p->ai_socktype, p->ai_protocol);                \
-      if (f < 0) {                                                             \
+    for ((p) = (s); (p) != NULL; (p) = (p)->ai_next) {                         \
+      (f) = socket((p)->ai_family, (p)->ai_socktype, (p)->ai_protocol);        \
+      if ((f) < 0) {                                                           \
         perror("socket");                                                      \
         continue;                                                              \
       }                                                                        \
       break;                                                                   \
     }                                                                          \
                                                                                \
-    if (p == NULL) { /* if no socket is created */                             \
+    if ((p) == NULL) { /* if no socket is created */                           \
       fprintf(stderr, "send_thread: failed to create socket\n");               \
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
@@ -99,7 +99,8 @@ need to free both ChannelMsg and the msg inside it.                            \
 /* from p to sendto addr */
 #define do_p_to_sin_addr(p, a)                                                 \
   do {                                                                         \
-    a = (((struct sockaddr_in *)((p->ai_addr)->sa_data))->sin_addr).s_addr;    \
+    (a) =                                                                      \
+        (((struct sockaddr_in *)(((p)->ai_addr)->sa_data))->sin_addr).s_addr;  \
   } while (0)
 
 /* given the addr part of ChannelMsg and 2 addrinfo,
@@ -108,10 +109,10 @@ need to free both ChannelMsg and the msg inside it.                            \
  * */
 #define do_find_msgDest_addrinfo(f, p, q, r)                                   \
   do {                                                                         \
-    if (f == p)                                                                \
-      r = q;                                                                   \
+    if ((f) == (p))                                                            \
+      (r) = (q);                                                               \
     else                                                                       \
-      r = p;                                                                   \
+      (r) = (p);                                                               \
   } while (0)
 
 #define do_sendto(sock, msg, p, done)                                          \
@@ -390,7 +391,7 @@ int main(int argc, char *argv[]) {
 void *send_thread(void *arg) {
   /* util */
   /* thread return value, number of messages sent */
-  VOID_PTR_INT_CAST nMsgSent1; 
+  VOID_PTR_INT_CAST nMsgSent1;
   VOID_PTR_INT_CAST nMsgSent2;
   VOID_PTR_INT_CAST *nMsgSentRet1; /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgSentRet2;
@@ -488,7 +489,7 @@ void *send_thread(void *arg) {
     }
     /* if it's 1 -> 2 */
 #ifndef CONNMACRO
-  handle_error("CONNMACRO is not defined");
+    handle_error("CONNMACRO is not defined");
 #else
     if ((msg_to == to_addr1) && (!done)) {
       do_sendto(sockfd1, Qmsg->msg, psend, done);
@@ -537,9 +538,9 @@ void *receive_thread(void *arg) {
   VOID_PTR_INT_CAST nMsgRecv1, nMsgRecv2;
   /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgRecvRet1, *nMsgRecvRet2, *ret;
-  int s;                      /* return val of sys and lib calls */
-  void *spt;                  /* return val, but when pointer */
-  bool done, hasproblemo;     /* flags */
+  int s;                  /* return val of sys and lib calls */
+  void *spt;              /* return val, but when pointer */
+  bool done, hasproblemo; /* flags */
   /* args */
   Receiver_info *recv_info;
   char *receive_from_port;
