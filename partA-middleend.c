@@ -103,6 +103,12 @@ need to free both ChannelMsg and the msg inside it.                            \
         (((struct sockaddr_in *)(((p)->ai_addr)->sa_data))->sin_addr).s_addr;  \
   } while (0)
 
+/* from `struct sockaddr_storage` to sendto addr */
+#define do_saddrsto_to_sin_addr(s, a)                                          \
+  do {                                                                         \
+    (a) = (((struct sockaddr_in *)(&(s)))->sin_addr).s_addr;                   \
+  } while (0)
+
 /* given the addr part of ChannelMsg and 2 addrinfo,
  * find one that the message should go.
  * (if from==p_i->sin_addr, then return p_j)
@@ -150,6 +156,11 @@ need to free both ChannelMsg and the msg inside it.                            \
     printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who));   \
     printf("send_thread: stream to %s is done, socket has closed\n", (who));   \
   } while (0)
+
+#define gen_rand(ret) \
+do { \
+  (ret) = (float) rand() / (float) (RAND_MAX + 1.0); \
+} while (0)
 
 #define PORTMAX 65535
 #define PORTMIN 1024
