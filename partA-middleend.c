@@ -93,6 +93,44 @@ otherwise, I'd got static data structure to hold them */
     }                                                                          \
   } while (0)
 
+/* from p to sendto addr */
+#define do_p_to_sin_addr(p, a)                                                 \
+  do {                                                                         \
+    a = (((struct sockaddr_in *)((p->ai_addr)->sa_data))->sin_addr).s_addr;    \
+  } while (0)
+
+/* given the addr part of ChannelMsg and 2 addrinfo,
+ * find one that the message should go.
+ * (if from==p_i->sin_addr, then return p_j)
+ * */
+#define do_find_msgDest_addrinfo(f, p, q, r)                                   \
+  do {                                                                         \
+    if (f == p)                                                                \
+      r = q;                                                                   \
+    else                                                                       \
+      r = p;                                                                   \
+  } while (0)
+
+#define do_sendto(sock, msg, p, done)                                          \
+  do {                                                                         \
+    numbytes =                                                                 \
+        sendto((sock), (msg), strlen(msg), 0, (p)->ai_addr, (p)->ai_addrlen);  \
+    if (numbytes < 0) {                                                        \
+      perror("sendto");                                                        \
+      hasProblemo = true;                                                      \
+      (done) = true;                                                           \
+    }               \
+    \
+  } while (0)
+
+#define do_done_cleanup(nMsg, servinfo, sockfd, who)\
+do{\
+  printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who)); \
+  printf("send_thread: stream to %s is done\n", (who)); \
+  freeaddrinfo((servinfo)); \
+  close((sockfd)); \
+} while(0)
+
 #define PORTMAX 65535
 #define PORTMIN 1024
 
@@ -129,6 +167,11 @@ typedef struct receiver_info {
 } Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
+
+typedef struct _channelMsg {
+  in_addr_t from;
+  char *msg;
+} ChannelMsg;
 
 void *send_thread(void *);
 void *receive_thread(void *);
@@ -333,11 +376,15 @@ int main(int argc, char *argv[]) {
  * */
 void *send_thread(void *arg) {
   /* util */
-  VOID_PTR_INT_CAST nMsgSent; /* thread return value, number of messages sent */
-  VOID_PTR_INT_CAST *nMsgSentRet; /* forced by gcc to return (void *) */
-  int s;                          /* return val of sys and lib calls */
-  void *spt;                      /* return val, but when pointer */
-  bool done, hasProblemo, hasMsg; /* flags */
+  VOID_PTR_INT_CAST
+  nMsgSent1; /* thread return value, number of messages sent */
+  VOID_PTR_INT_CAST nMsgSent2;
+  VOID_PTR_INT_CAST *nMsgSentRet1; /* forced by gcc to return (void *) */
+  VOID_PTR_INT_CAST *nMsgSentRet2;
+  VOID_PTR_INT_CAST *ret; /* return value */
+  int s;                                 /* return val of sys and lib calls */
+  void *spt;                             /* return val, but when pointer */
+  bool done, done2, hasProblemo, hasMsg; /* flags */
   /* args */
   Sender_info *send_info;
   char *send_to_host1, *send_to_host2;
@@ -345,18 +392,22 @@ void *send_thread(void *arg) {
   int delay;              /* delay in seconds */
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
+  char *kill;
 
   /* network stuff */
   int sockfd1, sockfd2;
+  in_addr_t to_addr1, to_addr2, msg_from, msg_to, tmp_addr;
+  /* 2 addresses */
+
   int numbytes;
 #ifdef MALLOCMSG
-  char *buf; /* message in buffer from malloc. */
+  ChannelMsg *Qmsg; /* message in buffer from malloc. */
 #else
   char buf[MAX_MSG_SIZE];
 #endif
   struct addrinfo hints1, hints2, /* hints about the type of socket */
       *servinfo1, *servinfo2,     /* linked list of results */
-      *p1, *p2;                   /* to hold the nodes inside linked list */
+      *p1, *p2, *psend;           /* to hold the nodes inside linked list */
 
   /* extracting the arguments */
   if (arg == NULL)
@@ -370,13 +421,14 @@ void *send_thread(void *arg) {
   delay = send_info->propgDelay;
   messagesQ = send_info->messagesQ;
   QLock = send_info->QLock;
+  kill = send_info->killMsg;
 
   if (send_to_host1 == NULL || send_to_port1 == NULL || send_to_host2 == NULL ||
       send_to_port2 == NULL)
     handle_error("send_thread: send_to_host1, send_to_port1, send_to_host2, "
                  "send_to_port2 cannot be NULL");
-  nMsgSentRet = &(send_info->nSent1to2); /* return value */
-
+  nMsgSentRet1 = &(send_info->nSent1to2); /* return value */
+  nMsgSentRet2 = &(send_info->nSent2to1); /* return value */
 /* set up the hints */
 #ifndef CONNMACRO
   spt = memset(&hints1, 0, sizeof(hints1));
@@ -447,10 +499,11 @@ void *send_thread(void *arg) {
 
 #endif
 
-  nMsgSent = 0;
+  nMsgSent1 = 0;
+  nMsgSent2 = 0;
   done = false;
   hasMsg = false;
-  while (!done) {
+  while (!done && !done2) {
     /* sleep for 2xdelay, check the queue
      * if the result of dequeue is NULL, then sleep again.
      * Otherwise, send the message out, and free it.
@@ -458,38 +511,93 @@ void *send_thread(void *arg) {
     while (!hasMsg) {
       sleep(send_info->propgDelay * 2);
       pthread_mutex_lock(QLock);
-      hasMsg = (buf = QDequeue(messagesQ)) != NULL;
+      hasMsg = (Qmsg = QDequeue(messagesQ)) != NULL;
     }
-
-    if (fgets(buf, sizeof(buf), stdin) == NULL) {
-      if (!feof(stdin))
-        perror("fgets"); /* some other shits happened in stdin */
-      done = true;
-      hasProblemo = true;
+    /* we have a message here (on Qmsg) */
+    /* need to find which to go to */
+    do_p_to_sin_addr(p1, to_addr1);
+    do_p_to_sin_addr(p2, to_addr2);
+    msg_from = Qmsg->from;
+    if (msg_from == to_addr1) {
+      psend = p2;
+      msg_to = to_addr2;
+    } else {
+      psend = p2;
+      msg_to = to_addr1;
     }
-
-    if (!hasProblemo) {
-      /* send data, if input is good */
-      numbytes = sendto(sockfd, buf, strlen(buf), 0, p->ai_addr, p->ai_addrlen);
+    do_p_to_sin_addr(psend, tmp_addr);
+    if (tmp_addr != msg_to) {
+      fprintf(stderr, "addr_calc: we have a problem here\n");
+      exit(EXIT_FAILURE);
+    }
+    /* if it's 1 -> 2 */
+#ifdef CONNMACRO
+    if ((msg_to == to_addr1) && (!done)) {
+      do_sendto(sockfd1, Qmsg->msg, psend, done); nMsgSent1++;
+      if (done) { do_done_cleanup(nMsgSent1, servinfo1, sockfd1, "1") ;}
+    } 
+    else if ((msg_to == to_addr2) && (!done2)) {
+      do_sendto(sockfd2, Qmsg->msg, psend, done2); nMsgSent2++;
+      if (done2) { do_done_cleanup(nMsgSent2, servinfo2, sockfd2, "2") ;}
+    } else {
+      fprintf(stderr, "send_thread: we have a problem here.\n"
+      "info: to_addr1: %s\t to_addr2: %s\n"
+      "\t stream to 1 closed: %s\n" "\t stream to 2 closed: %s\n",
+      (msg_to == to_addr1) ? "yes" : "no",
+      (msg_to == to_addr2) ? "yes" : "no",
+      (done) ? "yes" : "no", (done2) ? "yes" : "no");
+      exit(EXIT_FAILURE);
+    }
+#else
+      numbytes = sendto(sockfd1, Qmsg->msg, strlen(Qmsg->msg), 0,
+                        psend->ai_addr, psend->ai_addrlen);
       if (numbytes < 0) {
         perror("sendto");
+        hasProblemo = true;
         done = true;
+      }
+      nMsgSent1++;
+      done =
+          (strcmp(Qmsg->msg, kill) == 0) ||
+          (strncmp(Qmsg->msg, kill, strlen(kill)) == 0 /* upto len(kill) same*/
+           && Qmsg->msg[strlen(kill)] == '\n'          /* followed by \n */
+           && Qmsg->msg[strlen(kill) + 1] == '\0');    /* ended with \0 */
+      if (done) {
+        printf("send_thread: sent " INT_FMT " messages to 1\n", nMsgSent1);
+        printf("send_thread: stream to 1 is done\n");
+
+        freeaddrinfo(servinfo1);
+        close(sockfd1);
+      }
+
+    } else {
+      numbytes = sendto(sockfd2, Qmsg->msg, strlen(Qmsg->msg), 0,
+                        psend->ai_addr, psend->ai_addrlen);
+    }
+
+      numbytes = sendto(sockfd1, Qmsg->msg, strlen(Qmsg->msg), 0,
+                        psend->ai_addr, psend->ai_addrlen);
+      if (numbytes < 0) {
+        perror("sendto");
+        if (msg_to == to_addr1) )
+      done = true;
         hasProblemo = true;
         exit(EXIT_FAILURE);
       }
       nMsgSent++;
-    }
-    done = strcmp(buf, "exit\n") == 0 || strcmp(buf, "exit") == 0; /* kill sig*/
-  }
-
+      done =
+          (strcmp(Qmsg->msg, kill) == 0) ||
+          (strncmp(Qmsg->msg, kill, strlen(kill)) == 0 /* upto len(kill) same*/
+           && Qmsg->msg[strlen(kill)] == '\n'          /* followed by \n */
+           && Qmsg->msg[strlen(kill) + 1] == '\0');    /* ended with \0 */
+#endif
+}
   /* done main loop */
-  freeaddrinfo(servinfo);
-  printf("send_thread: sent " INT_FMT " messages\n", nMsgSent);
-  close(sockfd);
-
-  ret = &nMsgSent;
-
-  return ret;
+  *nMsgSentRet1 = nMsgSent1;
+  *nMsgSentRet2 = nMsgSent2;
+  *ret = nMsgSent1 + nMsgSent2;
+  return (void *)(ret);
+    /* thread ended */
 }
 
 /* receiver thread
