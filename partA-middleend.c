@@ -157,10 +157,10 @@ need to free both ChannelMsg and the msg inside it.                            \
     printf("send_thread: stream to %s is done, socket has closed\n", (who));   \
   } while (0)
 
-#define gen_rand(ret) \
-do { \
-  (ret) = (float) rand() / (float) (RAND_MAX + 1.0); \
-} while (0)
+#define gen_rand(ret)                                                          \
+  do {                                                                         \
+    (ret) = (float)rand() / (float)(RAND_MAX + 1.0);                           \
+  } while (0)
 
 #define PORTMAX 65535
 #define PORTMIN 1024
@@ -568,13 +568,13 @@ void *receive_thread(void *arg) {
   VOID_PTR_INT_CAST nMsgRecv1, nMsgRecv2;
   /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgRecvRet1, *nMsgRecvRet2, *ret;
-  int s;                         /* return val of sys and lib calls */
-  void *spt;                     /* return val, but when pointer */
+  int s;                                  /* return val of sys and lib calls */
+  void *spt;                              /* return val, but when pointer */
   bool done, done2, hasproblemo, dropped; /* flags */
   /* args */
   Receiver_info *recv_info;
   char *receive_from_port;
-  float drop_prob, rand;        /* drop probility */
+  float drop_prob, rnd;   /* drop probility */
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
   char *kill;
@@ -586,7 +586,7 @@ void *receive_thread(void *arg) {
 #ifdef MALLOCMSG
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
   char rcvBuf[MAX_MSG_SIZE];
-  char * buf; /* also malloced */
+  char *buf; /* also malloced */
 #else
   char buf[MAX_MSG_SIZE];
 #endif
@@ -655,22 +655,24 @@ void *receive_thread(void *arg) {
       done = true;
       continue;
     }
-    dropped = gen_rand(rand) < drop_prob;
+    gen_rand(rnd);
+    dropped = rnd < drop_prob;
     if (!dropped) {
       /* got a message! (this is blocking via recvfrom) */
       do_saddrsto_to_sin_addr(their_addr, tmp_addr);
-      if (nMsgRecv1 == 0){ /* case: 1st message! set from_addr1 to the sender */
-        from_addr1=tmp_addr;
+      if (nMsgRecv1 ==
+          0) { /* case: 1st message! set from_addr1 to the sender */
+        from_addr1 = tmp_addr;
         nMsgRecv1++;
-      } else if (nMsgRecv2==0 && tmp_addr!=from_addr1){
-        from_addr2=tmp_addr; /* case: 1st message from the other end */
+      } else if (nMsgRecv2 == 0 && tmp_addr != from_addr1) {
+        from_addr2 = tmp_addr; /* case: 1st message from the other end */
         nMsgRecv2++;
-      } else if (tmp_addr != from_addr1 && tmp_addr != from_addr2){
+      } else if (tmp_addr != from_addr1 && tmp_addr != from_addr2) {
         fprintf(stderr, "receive_thread: we have a problem here\n");
         exit(EXIT_FAILURE); /* neither is correct */
-      } else if (tmp_addr == from_addr1){
+      } else if (tmp_addr == from_addr1) {
         nMsgRecv1++;
-      } else if (tmp_addr == from_addr2){
+      } else if (tmp_addr == from_addr2) {
         nMsgRecv2++;
       } else {
         fprintf(stderr, "receive_thread: we have a problem here\n");
@@ -679,14 +681,14 @@ void *receive_thread(void *arg) {
 
       printf("listener: got packet from %s\n",
              inet_ntop(their_addr.ss_family,
-                       get_in_addr((struct sockaddr *)&their_addr), their_addr_st,
-                       sizeof their_addr_st));
+                       get_in_addr((struct sockaddr *)&their_addr),
+                       their_addr_st, sizeof their_addr_st));
       printf("listener: sender id for this packet is %d\n",
-           (tmp_addr == from_addr1) ? 1 : 2);
+             (tmp_addr == from_addr1) ? 1 : 2);
       printf("listener: packet is %d bytes long\n", numBytes);
       rcvBuf[numBytes] = '\0'; /* swap the end with \0 */
       printf("listener: packet contains \"%s\"\n", rcvBuf);
-      
+
       buf = malloc(numBytes + 1);
       if (buf == NULL)
         handle_error("receive_thread: malloc failed");
@@ -700,16 +702,15 @@ void *receive_thread(void *arg) {
       pthread_mutex_lock(QLock);
       QEnqueue(messagesQ, Qmsg);
       pthread_mutex_unlock(QLock);
-      
+
       do_testkill(rcvBuf, kill, done); /* see if it's kill */
+    }
   }
-}
   /* done main loop */
   do_done_cleanup(servinfo, sockfd);
-  printf("listener thread: done, received" INT_FMT 
-        "messages from sender 1\n"
-        "and received " INT_FMT " messages from sender 2\n",
-        nMsgRecv1, nMsgRecv2);
+  printf("listener thread: done, received" INT_FMT "messages from sender 1\n"
+         "and received " INT_FMT " messages from sender 2\n",
+         nMsgRecv1, nMsgRecv2);
 
   *nMsgRecvRet1 = nMsgRecv1;
   *nMsgRecvRet2 = nMsgRecv2;
