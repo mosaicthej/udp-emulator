@@ -557,39 +557,48 @@ void *receive_thread(void *arg) {
   VOID_PTR_INT_CAST nMsgRecv1, nMsgRecv2;
   /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgRecvRet1, *nMsgRecvRet2, *ret;
-  int s;                  /* return val of sys and lib calls */
-  void *spt;              /* return val, but when pointer */
-  bool done, hasproblemo; /* flags */
+  int s;                         /* return val of sys and lib calls */
+  void *spt;                     /* return val, but when pointer */
+  bool done, done2, hasproblemo; /* flags */
   /* args */
   Receiver_info *recv_info;
   char *receive_from_port;
+  float drop_prob;        /* drop probility */
+  QUEUE *messagesQ;       /* list of messages */
+  pthread_mutex_t *QLock; /* lock for the list */
+  char *kill;
+
   /* network */
   int sockfd;
   int numBytes;
+  in_addr_t from_addr1, from_addr2, msg_from, msg_to, tmp_addr;
+#ifdef MALLOCMSG
+  ChannelMsg *Qmsg; /* message in buffer from malloc. */
+  char *buf;        /* also malloced */
+#else
   char buf[MAX_MSG_SIZE];
+#endif
   struct addrinfo hints, *servinfo, *p;
   socklen_t addr_len;
   struct sockaddr_storage their_addr;
   char their_addr_st[INET_ADDRSTRLEN];
 
-  spt = memset(&hints, 0, sizeof(hints));
-  if (spt == NULL)
-    handle_error("memset in receive_thread");
-  hints.ai_family = AF_INET;      /* IPv4 */
-  hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
-  hints.ai_flags = AI_PASSIVE;    /* use my IP */
-
   if (arg == NULL)
     handle_error("receive_thread: arg is NULL");
   recv_info = (Receiver_info *)arg;
   receive_from_port = recv_info->receive_from_port;
-
-  if ((s = getaddrinfo(NULL, receive_from_port, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-    exit(EXIT_FAILURE);
-  } /* obtain the addr info */
-
+#ifndef CONNMACRO
+  handle_error("CONNMACRO is not defined");
+#else
+  do_setup_hints(hints, 0, sizeof(hints),
+                 "setup_hints in [receive_thread, hints]: memset failed");
+  hints.ai_flags = AI_PASSIVE; /* use my IP */
+  do_getaddrinfo(s, NULL, receive_from_port, hints, servinfo);
+#endif
   /* find socket to bind */
+  /* could have used a macro..., which can further extract by
+   * include body part (can extracting from ) do_socket_walk above
+   * If only I had more time */
   done = false;
   hasproblemo = false;
   p = servinfo;
@@ -624,7 +633,7 @@ void *receive_thread(void *arg) {
   addr_len = sizeof(their_addr);
   done = false;
   hasproblemo = false;
-  nMsgRecv = 0;
+  nMsgRecv1 = 0; nMsgRecv2 = 0;
   while (!done) {
     if ((numBytes = recvfrom(sockfd, buf, MAX_MSG_SIZE - 1, 0,
                              (struct sockaddr *)&their_addr, &addr_len)) < 0) {
