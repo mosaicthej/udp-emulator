@@ -3,17 +3,26 @@
 CC = gcc
 XCC = gcc-10
 CFLAGS = -g
-CPPFLAGS = -std=gnu90 -Wall -Wextra -pedantic
+CPPFLAGS = -Wall -Wextra -pedantic
 ARCHIVE = ar -r -c -s
 
 LISTS = list_adders list_movers list_removers
 # use the minimal version for now. (listmin.h)
 # now use the queue for library (queue.h)
 
-all: partA-endpoint testlist testlistmin testqueue
+all: partA-endpoint partA-middleend testlist testlistmin testqueue
 
-partA-endpoint: partA-endpoint.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $<
+partA-endpoint: partA-endpoint.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -lpthread
+
+partA-middleend: partA-middleend.o libqueue.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -lpthread -L. -lqueue
+
+partA-endpoint.o: partA-endpoint.c 
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
+
+partA-middleend.o: partA-middleend.c queue.h conn.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
 
 testqueue: testqueue.o libqueue.a
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -L. -lqueue
