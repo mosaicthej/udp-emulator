@@ -59,11 +59,24 @@
 
 #define MAX_MSG_SIZE 100
 
+#define MAX_DELAY 10 /* seconds */
+
 /* arguments to each thread. */
 typedef struct sender_info {
   pthread_t thread_id; /* set by pthread_create, parent has access to */
-  char *send_to_host;
-  char *send_to_port;
+  char *send_to_host1;
+  char *send_to_port1;
+
+  char *send_to_host2;
+  char *send_to_port2;
+
+  int propgDelay; /* how often to check the queue */
+  
+  QUEUE *messagesQ; /* list of messages */ 
+  pthread_mutex_t *QLock; /* lock for the list */
+
+  VOID_PTR_INT_CAST nSent1to2;
+  VOID_PTR_INT_CAST nSent2to1; /* statistics */
 } Sender_info;
 
 typedef struct receiver_info {
@@ -73,8 +86,8 @@ typedef struct receiver_info {
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
 
-VOID_PTR_INT_CAST send_thread(void *);
 VOID_PTR_INT_CAST receive_thread(void *);
+void* send_thread(void *);
 /* TODO: Extract the routines as functions,
  * then use thread functions to wrap.
  * So sender and listener can be reused.
@@ -266,46 +279,86 @@ int main(int argc, char *argv[]) {
  *
  * If error, exit with EXIT_FAILURE.
  * */
-VOID_PTR_INT_CAST send_thread(void *arg) {
+void* send_thread(void *arg) {
   /* util */
   VOID_PTR_INT_CAST nMsgSent; /* thread return value, number of messages sent */
+  VOID_PTR_INT_CAST* nMsgSentRet;     /* forced by gcc to return (void *) */
   int s;                      /* return val of sys and lib calls */
   void *spt;                  /* return val, but when pointer */
-  bool done, hasProblemo;     /* flags */
+  bool done, hasProblemo, hasMsg;     /* flags */
   /* args */
   Sender_info *send_info;
-  char *send_to_host;
-  char *send_to_port;
+  char *send_to_host1, *send_to_host2;
+  char *send_to_port1, *send_to_port2;
+  int delay; /* delay in seconds */
+  QUEUE *messagesQ; /* list of messages */
+  pthread_mutex_t *QLock; /* lock for the list */
 
   /* network stuff */
-  int sockfd;
+  int sockfd1, sockfd2;
   int numbytes;
+  #ifdef MALLOCMSG
+  char* buf; /* message in buffer from malloc. */
+  #else
   char buf[MAX_MSG_SIZE];
-  struct addrinfo hints, /* hints about the type of socket */
-      *servinfo,         /* linked list of results */
-      *p;                /* to hold the nodes inside linked list */
+  #endif
+  struct addrinfo hints1, hints2, /* hints about the type of socket */
+      *servinfo1, *servinfo2,         /* linked list of results */
+      *p1, *p2;                /* to hold the nodes inside linked list */
 
   /* extracting the arguments */
   if (arg == NULL)
     handle_error("send_thread: arg is NULL");
   send_info = (Sender_info *)arg;
-  send_to_host = send_info->send_to_host;
-  send_to_port = send_info->send_to_port;
-  if (send_to_host == NULL || send_to_port == NULL)
-    handle_error("send_thread: send_to_host or send_to_port is NULL");
 
-  spt = memset(&hints, 0, sizeof(hints));
+  send_to_host1 = send_info->send_to_host1;
+  send_to_port1 = send_info->send_to_port1;
+  send_to_host2 = send_info->send_to_host2;
+  send_to_port2 = send_info->send_to_port2;
+  delay = send_info->propgDelay;
+  messagesQ = send_info->messagesQ;
+  QLock = send_info->QLock;
+
+  if (send_to_host1 == NULL || send_to_port1 == NULL 
+    || send_to_host2 == NULL|| send_to_port2 == NULL)
+    handle_error("send_thread: send_to_host1, send_to_port1, send_to_host2, "
+                 "send_to_port2 cannot be NULL");
+  nMsgSentRet = &(send_info->nSent1to2); /* return value */
+  
+  /* set up the hints */
+  spt = memset(&hints1, 0, sizeof(hints1));
   if (spt == NULL)
     handle_error("memset in send_thread");
-
-  hints.ai_family = AF_INET;      /* IPv4 */
-  hints.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
-
-  if ((s = getaddrinfo(send_to_host, send_to_port, &hints, &servinfo)) != 0) {
+    hints1.ai_family = AF_INET;      /* IPv4 */
+    hints1.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */
+  
+  /* endpoint 1 */
+  /* get the addr info, */
+  if((s = getaddrinfo(send_to_host1, send_to_port1, &hints, &servinfo)) != 0){
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
     exit(EXIT_FAILURE);
-  } /* obtain the addr info */
+  }
+  /* loop through the result and make a socket */
 
+  done = false; hasProblemo = false;
+  p = servinfo;
+  while(p!=NULL && !done) {
+    sockfd1 = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (sockfd1 < 0) {
+      perror("socket");
+      hasProblemo = true;
+    }
+    done = !hasProblemo; /* if no problem, done
+      otherwise go to next socket until run out */
+    hasProblemo = false; /* reset the flag */
+    if (!hasProblemo) p = p->ai_next; /* go to next socket if not done */
+  }
+ 
+  if (p == NULL) { /* if no socket is created */
+    fprintf(stderr, "send_thread: failed to create socket\n");
+    exit(EXIT_FAILURE);
+  }
+   
   /* loop through the result and make a socket */
   done = false;
   hasProblemo = false;
@@ -327,10 +380,13 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
     exit(EXIT_FAILURE);
   }
 
+  
   nMsgSent = 0;
   done = false;
   while (!done) {
     /* read from stdin */
+
+    
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
       if (!feof(stdin))
         perror("fgets"); /* some other shits happened in stdin */
@@ -357,7 +413,9 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
   printf("send_thread: sent " INT_FMT " messages\n", nMsgSent);
   close(sockfd);
 
-  return nMsgSent;
+  ret = &nMsgSent;
+
+  return ret;
 }
 
 /* receiver thread
