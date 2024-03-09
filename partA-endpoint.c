@@ -67,8 +67,8 @@ typedef struct receiver_info {
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
 
-VOID_PTR_INT_CAST send_thread(void *);
-VOID_PTR_INT_CAST receive_thread(void *);
+void* send_thread(void *);
+void* receive_thread(void *);
 /* TODO: Extract the routines as functions,
  * then use thread functions to wrap.
  * So sender and listener can be reused.
@@ -195,9 +195,10 @@ int main(int argc, char *argv[]) {
  *
  * If error, exit with EXIT_FAILURE.
  * */
-VOID_PTR_INT_CAST send_thread(void *arg) {
+void* send_thread(void *arg) {
   /* util */
   VOID_PTR_INT_CAST nMsgSent; /* thread return value, number of messages sent */
+  VOID_PTR_INT_CAST* ret;     /* forced by gcc to return (void *) */
   int s;                      /* return val of sys and lib calls */
   void *spt;                  /* return val, but when pointer */
   bool done, hasProblemo;     /* flags */
@@ -286,7 +287,8 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
   printf("send_thread: sent " INT_FMT " messages\n", nMsgSent);
   close(sockfd);
 
-  return nMsgSent;
+  ret = &nMsgSent;
+  return (void*)ret;
 }
 
 /* receiver thread
@@ -296,9 +298,10 @@ VOID_PTR_INT_CAST send_thread(void *arg) {
  *  - repeat, until received the kill signal "exit" or EOF
  *  return number of messages received.
  * */
-VOID_PTR_INT_CAST receive_thread(void *arg) {
+void* receive_thread(void *arg) {
   /* util */
   VOID_PTR_INT_CAST nMsgRecv; /* thread return value, num msg received */
+  VOID_PTR_INT_CAST* ret;     /* bruh even clang did not complain */
   int s;                      /* return val of sys and lib calls */
   void *spt;                  /* return val, but when pointer */
   bool done, hasproblemo;     /* flags */
@@ -386,6 +389,8 @@ VOID_PTR_INT_CAST receive_thread(void *arg) {
   }
   printf("receive_thread: done, received " INT_FMT " messages\n", nMsgRecv);
   close(sockfd);
-  return nMsgRecv;
+
+  ret = &nMsgRecv;
+  return ret;
 }
 /* TODO: printouts should include thread number as well. */
