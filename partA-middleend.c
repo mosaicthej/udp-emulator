@@ -127,6 +127,13 @@ need to free both ChannelMsg and the msg inside it.                            \
                                                                                \
   } while (0)
 
+#define do_testkill(msg, kill, done)                                           \
+  do {                                                                         \
+    if (!((done) = (strcmp((msg), (kill)) == 0))) /* if not same string */     \
+      (done) = ((strncmp((msg), (kill), strlen((kill))) == 0) &&               \
+                (strlen((msg)) - strlen((msg)) == 1) &&                        \
+                ((msg)[strlen((kill))] == '\n'));                              \
+  } while (0)
 #define do_free_msg(m)                                                         \
   do {                                                                         \
     free((m)->msg);                                                            \
@@ -499,6 +506,7 @@ void *send_thread(void *arg) {
 #else
     if ((msg_to == to_addr1) && (!done)) {
       do_sendto(sockfd1, Qmsg->msg, psend, done);
+      do_testkill(Qmsg->msg, kill, done);
       do_free_msg(Qmsg);
       nMsgSent1++;
       if (done) {
@@ -507,6 +515,7 @@ void *send_thread(void *arg) {
       }
     } else if ((msg_to == to_addr2) && (!done2)) {
       do_sendto(sockfd2, Qmsg->msg, psend, done2);
+      do_testkill(Qmsg->msg, kill, done2);
       nMsgSent2++;
       if (done2) {
         do_done_cleanup(servinfo2, sockfd2);
