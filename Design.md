@@ -115,10 +115,21 @@ To enable the communication between the two endpoints, a shared queue will be
 required for upholding the messages.
 
 The queue will be implemented with a linked list type LIST and library 
-procedures defined by `list.h`. (borrowed from John)
+procedures defined by `listmin.h`. (borrowed from John Miller, removed the ones
+that is not required for the scope of this project.)
 
 Note that the list is not thread safe, 
 so need to create a pthread_mutex to protect the list.
+
+The list should be both accessible by the sender and receiver.
+To ensure safety and easier debug, I'll make the list allocated
+on main's stack. Since the threads will be sharing the same memory space,
+both threads can accesses the list if the list address is passed to them.
+
+It is memory safe as long as we don't have any dynamically allocated memory
+in my code. The list library put `MAX_LISTS` and `MAX_NODES` number of 
+`LIST`s and `NODE`s on the bss. 
+Self-contained without run-time memory allocation.
 
 #### Channel: Receiver
 
@@ -243,4 +254,7 @@ while(!done){
 }
 ```
 
+
+
+### DataLink layer Selective Repeat
 

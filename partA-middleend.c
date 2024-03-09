@@ -36,7 +36,8 @@
 
 #include <pthread.h>
 
-#include <list.h>
+/* list library */
+#include <listmin.h>
 
 #define handle_error_en(en, msg)                                               \
   do {                                                                         \
