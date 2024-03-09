@@ -58,11 +58,15 @@ typedef struct sender_info {
   pthread_t thread_id; /* set by pthread_create, parent has access to */
   char *send_to_host;
   char *send_to_port;
+
+  VOID_PTR_INT_CAST nMsgRet;
 } Sender_info;
 
 typedef struct receiver_info {
   pthread_t thread_id;
   char *receive_from_port;
+
+  VOID_PTR_INT_CAST nMsgRet;
 } Receiver_info;
 /* TODO: kill message should also be an argument
 add it to sender info and receiver info, also refactor the routines. */
@@ -174,13 +178,13 @@ int main(int argc, char *argv[]) {
   s = pthread_join(send_info.thread_id, &res);
   if (s != 0)
     handle_error_en(s, "pthread_join: send_thread");
-  nRes = (VOID_PTR_INT_CAST)res;
-  printf("send_thread joined, total messages sent" INT_FMT "\n", nRes);
+  nRes = send_info.nMsgRet;
+  printf("send_thread joined, total messages sent " INT_FMT "\n", nRes);
 
   s = pthread_join(recv_info.thread_id, &res);
   if (s != 0)
     handle_error_en(s, "pthread_join: receive_thread");
-  nRes = (VOID_PTR_INT_CAST)res;
+  nRes = recv_info.nMsgRet;
   printf("receive_thread joined, total messages received: " INT_FMT "\n", nRes);
 
   exit(EXIT_SUCCESS);
@@ -198,7 +202,8 @@ int main(int argc, char *argv[]) {
 void* send_thread(void *arg) {
   /* util */
   VOID_PTR_INT_CAST nMsgSent; /* thread return value, number of messages sent */
-  VOID_PTR_INT_CAST* ret;     /* forced by gcc to return (void *) */
+  VOID_PTR_INT_CAST* nMsgSentRet; /* return by storing value in passed in arg */
+  
   int s;                      /* return val of sys and lib calls */
   void *spt;                  /* return val, but when pointer */
   bool done, hasProblemo;     /* flags */
@@ -223,6 +228,7 @@ void* send_thread(void *arg) {
   send_to_port = send_info->send_to_port;
   if (send_to_host == NULL || send_to_port == NULL)
     handle_error("send_thread: send_to_host or send_to_port is NULL");
+  nMsgSentRet = &(send_info->nMsgRet);
 
   spt = memset(&hints, 0, sizeof(hints));
   if (spt == NULL)
@@ -287,8 +293,8 @@ void* send_thread(void *arg) {
   printf("send_thread: sent " INT_FMT " messages\n", nMsgSent);
   close(sockfd);
 
-  ret = &nMsgSent;
-  return (void*)ret;
+  *nMsgSentRet = nMsgSent;
+  return (void*) nMsgSent;
 }
 
 /* receiver thread
@@ -301,7 +307,7 @@ void* send_thread(void *arg) {
 void* receive_thread(void *arg) {
   /* util */
   VOID_PTR_INT_CAST nMsgRecv; /* thread return value, num msg received */
-  VOID_PTR_INT_CAST* ret;     /* bruh even clang did not complain */
+  VOID_PTR_INT_CAST* nMsgRecvRet;     /* bruh even clang did not complain */
   int s;                      /* return val of sys and lib calls */
   void *spt;                  /* return val, but when pointer */
   bool done, hasproblemo;     /* flags */
@@ -328,6 +334,7 @@ void* receive_thread(void *arg) {
     handle_error("receive_thread: arg is NULL");
   recv_info = (Receiver_info *)arg;
   receive_from_port = recv_info->receive_from_port;
+  nMsgRecvRet = &(recv_info->nMsgRet);
 
   if ((s = getaddrinfo(NULL, receive_from_port, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
@@ -390,7 +397,7 @@ void* receive_thread(void *arg) {
   printf("receive_thread: done, received " INT_FMT " messages\n", nMsgRecv);
   close(sockfd);
 
-  ret = &nMsgRecv;
-  return ret;
+  *nMsgRecvRet=nMsgRecv;
+  return (void*) nMsgRecv;
 }
 /* TODO: printouts should include thread number as well. */
