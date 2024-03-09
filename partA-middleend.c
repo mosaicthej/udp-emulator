@@ -126,6 +126,12 @@ need to free both ChannelMsg and the msg inside it.                            \
                                                                                \
   } while (0)
 
+#define do_free_msg(m)                                                         \
+  do {                                                                         \
+    free((m)->msg);                                                            \
+    free((m));                                                                 \
+  } while (0)
+
 #define do_done_cleanup(nMsg, servinfo, sockfd, who)                           \
   do {                                                                         \
     printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who));   \
@@ -486,6 +492,7 @@ void *send_thread(void *arg) {
 #else
     if ((msg_to == to_addr1) && (!done)) {
       do_sendto(sockfd1, Qmsg->msg, psend, done);
+      do_free_msg(Qmsg);
       nMsgSent1++;
       if (done) {
         do_done_cleanup(nMsgSent1, servinfo1, sockfd1, "1");
