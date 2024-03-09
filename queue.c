@@ -66,7 +66,7 @@ int num_lists;
  *
  * This function may fail, if the maximum number of LISTs has been reached
  */
-LIST *QueueCreate() {
+LIST *QueueCreate(void) {
   LIST *new_list;
 
   /* init the nodes and lists if not yet done for the first time */

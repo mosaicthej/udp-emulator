@@ -44,7 +44,7 @@ int num_lists;
  *
  * This function may fail, if the maximum number of LISTs has been reached
  */
-LIST *ListCreate() {
+LIST *ListCreate(void) {
     LIST *new_list;
 
     /* init the nodes and lists if not yet done for the first time */
