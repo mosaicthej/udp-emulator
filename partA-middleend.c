@@ -61,10 +61,10 @@ need to free both ChannelMsg and the msg inside it.                            \
 
 #define CONNMACRO
 
-#define do_setup_hints(s, c, n)                                                \
+#define do_setup_hints(s, c, n, e)                                             \
   do {                                                                         \
     if (memset(&(s), (c), (n)) == NULL)                                        \
-      handle_error("memset in send_thread");                                   \
+      handle_error((e));                                                       \
     s.ai_family = AF_INET;      /* IPv4 */                                     \
     s.ai_socktype = SOCK_DGRAM; /* UDP (datagram) */                           \
   } while (0)
@@ -79,7 +79,7 @@ need to free both ChannelMsg and the msg inside it.                            \
   } while (0)
 
 /* p, servinfo, sockfd */
-#define do_socket_walk(p, s, f)                                                \
+#define do_socket_walk(p, s, f, e)                                             \
   do {                                                                         \
     for ((p) = (s); (p) != NULL; (p) = (p)->ai_next) {                         \
       (f) = socket((p)->ai_family, (p)->ai_socktype, (p)->ai_protocol);        \
@@ -91,7 +91,7 @@ need to free both ChannelMsg and the msg inside it.                            \
     }                                                                          \
                                                                                \
     if ((p) == NULL) { /* if no socket is created */                           \
-      fprintf(stderr, "send_thread: failed to create socket\n");               \
+      fprintf(stderr, "%s: failed to create socket\n", (e));                   \
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
   } while (0)
@@ -133,12 +133,16 @@ need to free both ChannelMsg and the msg inside it.                            \
     free((m));                                                                 \
   } while (0)
 
-#define do_done_cleanup(nMsg, servinfo, sockfd, who)                           \
+#define do_done_cleanup(servinfo, sockfd)                                      \
   do {                                                                         \
-    printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who));   \
-    printf("send_thread: stream to %s is done\n", (who));                      \
     freeaddrinfo((servinfo));                                                  \
     close((sockfd));                                                           \
+  } while (0)
+
+#define do_done_send_print(nMsg, who)                                          \
+  do {                                                                         \
+    printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who));   \
+    printf("send_thread: stream to %s is done, socket has closed\n", (who));   \
   } while (0)
 
 #define PORTMAX 65535
@@ -447,13 +451,15 @@ void *send_thread(void *arg) {
 #ifndef CONNMACRO
   handle_error("CONNMACRO is not defined");
 #else
-  do_setup_hints(hints1, 0, sizeof(hints1));
+  do_setup_hints(hints1, 0, sizeof(hints1),
+                 "setup_hints in [send_thread, hints 1]: memset failed");
   do_getaddrinfo(s, send_to_host1, send_to_port1, hints1, servinfo1);
-  do_socket_walk(p1, servinfo1, sockfd1);
+  do_socket_walk(p1, servinfo1, sockfd1, "[send_thread, socket 1]");
 
-  do_setup_hints(hints2, 0, sizeof(hints2));
+  do_setup_hints(hints2, 0, sizeof(hints2),
+                 "setup_hints in [send_thread, hints 2]: memset failed");
   do_getaddrinfo(s, send_to_host2, send_to_port2, hints2, servinfo2);
-  do_socket_walk(p2, servinfo2, sockfd2);
+  do_socket_walk(p2, servinfo2, sockfd2, "[send_thread, socket 2]");
 #endif
 
   nMsgSent1 = 0;
@@ -496,13 +502,15 @@ void *send_thread(void *arg) {
       do_free_msg(Qmsg);
       nMsgSent1++;
       if (done) {
-        do_done_cleanup(nMsgSent1, servinfo1, sockfd1, "1");
+        do_done_cleanup(servinfo1, sockfd1);
+        do_done_send_print(nMsgSent1, "1");
       }
     } else if ((msg_to == to_addr2) && (!done2)) {
       do_sendto(sockfd2, Qmsg->msg, psend, done2);
       nMsgSent2++;
       if (done2) {
-        do_done_cleanup(nMsgSent2, servinfo2, sockfd2, "2");
+        do_done_cleanup(servinfo2, sockfd2);
+        do_done_send_print(nMsgSent2, "2");
       }
     } else {
       fprintf(stderr,
