@@ -1,2 +1,6 @@
 build
 .cache/clangd/index
+*.a
+*.o
+partA-endpoint
+testlist
