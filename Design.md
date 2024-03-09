@@ -112,7 +112,13 @@ Since A would also need to simulate a situation of the propagation delay.
 
 To make things more structurally sound and modular, I will use two threads. 
 To enable the communication between the two endpoints, a shared queue will be 
-required for upholding the messages. 
+required for upholding the messages.
+
+The queue will be implemented with a linked list type LIST and library 
+procedures defined by `list.h`. (borrowed from John)
+
+Note that the list is not thread safe, 
+so need to create a pthread_mutex to protect the list.
 
 #### Channel: Receiver
 
