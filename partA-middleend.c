@@ -122,17 +122,17 @@ need to free both ChannelMsg and the msg inside it.                            \
       perror("sendto");                                                        \
       hasProblemo = true;                                                      \
       (done) = true;                                                           \
-    }               \
-    \
+    }                                                                          \
+                                                                               \
   } while (0)
 
-#define do_done_cleanup(nMsg, servinfo, sockfd, who)\
-do{\
-  printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who)); \
-  printf("send_thread: stream to %s is done\n", (who)); \
-  freeaddrinfo((servinfo)); \
-  close((sockfd)); \
-} while(0)
+#define do_done_cleanup(nMsg, servinfo, sockfd, who)                           \
+  do {                                                                         \
+    printf("send_thread: sent " INT_FMT "messages to %s \n", (nMsg), (who));   \
+    printf("send_thread: stream to %s is done\n", (who));                      \
+    freeaddrinfo((servinfo));                                                  \
+    close((sockfd));                                                           \
+  } while (0)
 
 #define PORTMAX 65535
 #define PORTMIN 1024
@@ -247,7 +247,7 @@ void *get_in_addr(struct sockaddr *sa) {
  *   2 threads, 1 for sending, 1 for receiving.
  *  using posix threads to do threading.
  *
- *  arguments from command line: 
+ *  arguments from command line:
  *  - `p`  : drop probility, 0.0 <= p <= 1.0
  *  - `d`  : delay, 0 <= d <= 1000 (ms)
  *  - `listen-on-port` : 1024 <= port <= 65535
@@ -383,12 +383,12 @@ int main(int argc, char *argv[]) {
  * */
 void *send_thread(void *arg) {
   /* util */
-  VOID_PTR_INT_CAST
-  nMsgSent1; /* thread return value, number of messages sent */
+  /* thread return value, number of messages sent */
+  VOID_PTR_INT_CAST nMsgSent1; 
   VOID_PTR_INT_CAST nMsgSent2;
   VOID_PTR_INT_CAST *nMsgSentRet1; /* forced by gcc to return (void *) */
   VOID_PTR_INT_CAST *nMsgSentRet2;
-  VOID_PTR_INT_CAST *ret; /* return value */
+  VOID_PTR_INT_CAST *ret;                /* return value */
   int s;                                 /* return val of sys and lib calls */
   void *spt;                             /* return val, but when pointer */
   bool done, done2, hasProblemo, hasMsg; /* flags */
