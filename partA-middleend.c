@@ -338,6 +338,8 @@ void *send_thread(void *arg) {
   /* network stuff */
   int sockfd1, sockfd2;
   in_addr_t to_addr1, to_addr2, msg_from, msg_to, tmp_addr;
+  char hbuf1[NI_MAXHOST], sbuf1[NI_MAXSERV];
+  char hbuf2[NI_MAXHOST], sbuf2[NI_MAXSERV];
   /* 2 addresses */
 
   int numbytes;
@@ -379,11 +381,15 @@ void *send_thread(void *arg) {
                  "setup_hints in [send_thread, hints 1]: memset failed");
   do_getaddrinfo(s, send_to_host1, send_to_port1, hints1, servinfo1);
   do_socket_walk(p1, servinfo1, sockfd1, "[send_thread, socket 1]");
+  do_sender_findHS(p1, hbuf1, sbuf1);
+  printf("connected to dest 1, \thost: %s, \tserv: %s\n", hbuf1, sbuf1);
 
   do_setup_hints(hints2, 0, sizeof(hints2),
                  "setup_hints in [send_thread, hints 2]: memset failed");
   do_getaddrinfo(s, send_to_host2, send_to_port2, hints2, servinfo2);
   do_socket_walk(p2, servinfo2, sockfd2, "[send_thread, socket 2]");
+  do_sender_findHS(p2, hbuf2, sbuf2);
+  printf("connected to dest 2, \thost: %s, \tserv: %s\n", hbuf2, sbuf2);
 #endif
 
   nMsgSent1 = 0;
@@ -494,6 +500,7 @@ void *receive_thread(void *arg) {
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
   char rcvBuf[MAX_MSG_SIZE];
   char *buf; /* also malloced */
+
 #else
   char buf[MAX_MSG_SIZE];
 #endif
@@ -501,6 +508,8 @@ void *receive_thread(void *arg) {
   socklen_t addr_len;
   struct sockaddr_storage their_addr;
   char their_addr_st[INET_ADDRSTRLEN];
+
+  char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
   if (arg == NULL)
     handle_error("receive_thread: arg is NULL");
@@ -566,6 +575,11 @@ void *receive_thread(void *arg) {
       perror("receive_thread: recvfrom");
       hasproblemo = true;
     }
+    if(getnameinfo((struct sockaddr *)&their_addr, addr_len, 
+                  hbuf, sizeof(hbuf), sbuf, sizeof(sbuf),
+                  NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+        printf("[receive_thread]: got message:\n"
+        "host: %s, \tserv: %s\n", hbuf, sbuf);
     if (hasproblemo) {
       done = true;
       continue;

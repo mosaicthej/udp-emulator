@@ -1,5 +1,6 @@
 #ifndef _CONN_H_
 #define _CONN_H_
+#include <netdb.h>
 #define CONNMACRO
 /* a collection of macros that are useful for this datagram prog */
 #define do_setup_hints(s, c, n, e)                                             \
@@ -40,8 +41,7 @@
 /* from p to sendto addr */
 #define do_p_to_sin_addr(p, a)                                                 \
   do {                                                                         \
-    (a) =                                                                      \
-        (((struct sockaddr_in *)(((p)->ai_addr)->sa_data))->sin_addr).s_addr;  \
+    (a) = (((struct sockaddr_in *)(p)->ai_addr)->sin_addr).s_addr;             \
   } while (0)
 
 /* from `struct sockaddr_storage` to sendto addr */
@@ -70,6 +70,16 @@
       perror("sendto");                                                        \
       hasProblemo = true;                                                      \
       (done) = true;                                                           \
+    }                                                                          \
+  } while (0)
+
+#define do_sender_findHS(p, hbuf, sbuf)                                        \
+  do {                                                                         \
+    if (getnameinfo((p)->ai_addr, (p)->ai_addrlen, (hbuf), sizeof((hbuf)),     \
+                    (sbuf), sizeof((sbuf)),                                    \
+                    NI_NUMERICHOST | NI_NUMERICSERV) != 0) {                   \
+      fprintf(stderr, "getnameinfo: %s\n", gai_strerror(errno));               \
+      exit(EXIT_FAILURE);                                                      \
     }                                                                          \
   } while (0)
 
@@ -103,6 +113,11 @@
     (ret) = (float)rand() / (float)(RAND_MAX + 1.0);                           \
   } while (0)
 
+#define do_getSockFdFromRemoteSto(rAddr, rIP, s)                               \
+  do {                                                                         \
+    (s) =                                                                      \
+        inet_ntop((rAddr).ss_family, get_in_addr((struct sockaddr *)&(rAddr),  \
+                                                 (rIP), INET6_ADDRSTRLEN))     \
+  } while (0)
 
-
-#endif  /* _CONN_H_ */ 
+#endif /* _CONN_H_ */
