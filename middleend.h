@@ -41,8 +41,8 @@ typedef struct _endPointInfo{
 } EndPointName; /* this is 1 row on the table */
 
 typedef struct _lookupTable{
-  EndPointName left; /* left endpoint */
-  EndPointName right; /* right endpoint */
+  EndPointName* left; /* left endpoint */
+  EndPointName* right; /* right endpoint */
 } LookupTable; /* this is the table */
 
 /* arguments to each thread. */
@@ -98,7 +98,8 @@ int check_args(char*, char*, char*, char*, char*);
 
 struct addrinfo * pickToSend( struct addrinfo *,
       struct addrinfo *,
-      struct sockaddr *);
+      struct sockaddr *, socklen_t, 
+      LookupTable * );
 
 bool sameAddr(struct sockaddr *, socklen_t, 
               struct sockaddr *, socklen_t);

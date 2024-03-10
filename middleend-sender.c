@@ -38,6 +38,7 @@ void *send_thread(void *arg) {
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
   char *kill;
+  LookupTable *nameTbl;
 
   /* network stuff */
   int sockfd1, sockfd2;

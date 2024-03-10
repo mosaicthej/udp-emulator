@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
   strncpy(right.portRcv, send_to_port2, NI_MAXSERV);
   memset(right.portSnd, 0, NI_MAXSERV); 
   
-  nameTbl.left=left; nameTbl.right=right; /* partial lookup table */
+  nameTbl.left=&left; nameTbl.right=&right; /* partial lookup table */
 
   messagesQ = QueueCreate();
   if (messagesQ == NULL) {
