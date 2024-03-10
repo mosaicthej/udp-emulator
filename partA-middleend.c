@@ -5,30 +5,11 @@
 
 #include <errno.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#if UINTPTR_MAX == 0xffff /* 16-bit */
-#define SYS_BITS 16
-#define VOID_PTR_CAST uint16_t
-#define INT_FMT "%d"
-#elif UINTPTR_MAX == 0xffffffff /* 32-bit */
-#define SYS_BITS 32
-#define VOID_PTR_CAST uint32_t
-#define INT_FMT "%d"
-#elif UINTPTR_MAX == 0xffffffffffffffff /* 64-bit */
-#define SYS_BITS 64
-#define VOID_PTR_INT_CAST uint64_t
-#define INT_FMT "%ld"
-#else
-#define VOID_PTR_INT_CAST int /* default int */
-#define INT_FMT "%d"
-#endif
-
-/* getaddrinfo */
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -40,6 +21,7 @@
 /* list library */
 #include <queue.h>
 #include "conn.h" /* for the macro functions */
+#include "middleend.h"
 
 #define MALLOCMSG /* messages are malloced,                                    \
 otherwise, I'd got static data structure to hold them                          \
@@ -59,121 +41,11 @@ need to free both ChannelMsg and the msg inside it.                            \
     perror(msg);                                                               \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
-
-#define PORTMAX 65535
-#define PORTMIN 1024
-
-#define MAX_MSG_SIZE 256
-#define MAX_ADDR_LEN 128
-#define MAX_PORT_LEN 32
-
-#define MAX_DELAY 10 /* seconds */
-
-/* arguments to each thread. */
-typedef struct sender_info {
-  pthread_t thread_id; /* set by pthread_create, parent has access to */
-  char *send_to_host1;
-  char *send_to_port1;
-
-  char *send_to_host2;
-  char *send_to_port2;
-
-  int propgDelay; /* how often to check the queue */
-
-  QUEUE *messagesQ;       /* list of messages */
-  pthread_mutex_t *QLock; /* lock for the list */
-  char *killMsg;          /* message to end the conversation */
-
-  VOID_PTR_INT_CAST nSent1to2;
-  VOID_PTR_INT_CAST nSent2to1; /* statistics */
-  VOID_PTR_INT_CAST retVal;
-} Sender_info;
-
-typedef struct receiver_info {
-  pthread_t thread_id;
-  char *receive_from_port;
-
-  float drop_prob; /* drop probility */
-
-  QUEUE *messagesQ;       /* list of messages */
-  pthread_mutex_t *QLock; /* lock for the list */
-  char *killMsg;          /* message to end the conversation */
-  VOID_PTR_INT_CAST nRecv1;
-  VOID_PTR_INT_CAST nRecv2; /* statistics */
-  VOID_PTR_INT_CAST retVal;
-} Receiver_info;
-/* TODO: kill message should also be an argument
-add it to sender info and receiver info, also refactor the routines. */
-
-typedef struct _channelMsg {
-  in_addr_t from;
-  char *msg;
-} ChannelMsg;
-
-void *send_thread(void *);
-void *receive_thread(void *);
 /* TODO: Extract the routines as functions,
  * then use thread functions to wrap.
  * So sender and listener can be reused.
  * */
 
-/* validate port numbers */
-int check_args(char *p, char *d, char *listen_on, char *e1, char *e2) {
-  int port;
-  float prob;
-  int delay;
-  char e1n[MAX_ADDR_LEN], e2n[MAX_ADDR_LEN];
-  int e1p, e2p;
-  int s;
-
-  port = atoi(listen_on);
-  prob = atof(p);
-  delay = atoi(d);
-
-  if (port < PORTMIN || port > PORTMAX) {
-    fprintf(stderr, "port must between %d and %d\n", PORTMIN, PORTMAX);
-
-    return EXIT_FAILURE;
-  }
-  if (prob < 0.0 || prob > 1.0) {
-    fprintf(stderr, "probility must between 0.0 and 1.0\n");
-    return EXIT_FAILURE;
-  }
-  if (delay < 0 || delay > MAX_DELAY) {
-    fprintf(stderr, "delay must between 0 and %d (s)\n", MAX_DELAY);
-    return EXIT_FAILURE;
-  }
-  if (e1 == NULL || e2 == NULL) {
-    fprintf(stderr, "endpoint-1 and endpoint-2 cannot be NULL\n");
-    return EXIT_FAILURE;
-  }
-
-  s = sscanf(e1, "%[^:]:%d", e1n, &e1p);
-  if (s != 2) {
-    fprintf(stderr, "endpoint-1 must be in format <hostname>:<port>\n");
-    return EXIT_FAILURE;
-  }
-  s = sscanf(e2, "%[^:]:%d", e2n, &e2p);
-  if (s != 2) {
-    fprintf(stderr, "endpoint-2 must be in format <hostname>:<port>\n");
-    return EXIT_FAILURE;
-  }
-
-  if (e1p < PORTMIN || e1p > PORTMAX || e2p < PORTMIN || e2p > PORTMAX) {
-    fprintf(stderr, "endpoint port must between %d and %d\n", PORTMIN, PORTMAX);
-    return EXIT_FAILURE;
-  }
-
-  return EXIT_SUCCESS;
-}
-
-void *get_in_addr(struct sockaddr *sa) {
-  if (sa->sa_family == AF_INET) {
-    /* this is ipv4 */
-    return &(((struct sockaddr_in *)sa)->sin_addr);
-  }
-  return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-}
 /*
  * Program: middleend
  *   2 threads, 1 for sending, 1 for receiving.
@@ -203,6 +75,9 @@ int main(int argc, char *argv[]) {
   pthread_attr_t attr;
   void *res;
   VOID_PTR_INT_CAST nRes, nRes2;
+
+  EndPointName left, right;
+  LookupTable nameTbl;
 
   Sender_info send_info; /* no need to malloc since always 1 instance */
   Receiver_info recv_info;
@@ -237,6 +112,17 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  /* initialize the `Hx` and `P_rx` entry for each endpoint */
+  strncpy(left.hostName, endpoint1_host, NI_MAXHOST);
+  strncpy(left.portRcv, send_to_port1, NI_MAXSERV);
+  memset(left.portSnd, 0, NI_MAXSERV); /* not yet completed  */
+  
+  strncpy(right.hostName, endpoint2_host, NI_MAXHOST);
+  strncpy(right.portRcv, send_to_port2, NI_MAXSERV);
+  memset(right.portSnd, 0, NI_MAXSERV); 
+  
+  nameTbl.left=left; nameTbl.right=right; /* partial lookup table */
+
   messagesQ = QueueCreate();
   if (messagesQ == NULL) {
     fprintf(stderr, "QueueCreate failed\n");
@@ -255,6 +141,7 @@ int main(int argc, char *argv[]) {
   send_info.QLock = &QLock;
   send_info.killMsg = "exit";
   send_info.retVal = 0;
+  send_info.nameTbl = &nameTbl;
 
   recv_info.receive_from_port = receive_from_port;
   recv_info.messagesQ = messagesQ;
@@ -262,6 +149,7 @@ int main(int argc, char *argv[]) {
   recv_info.killMsg = "exit";
   recv_info.drop_prob = drop_prob;
   recv_info.retVal = 0;
+  recv_info.nameTbl = &nameTbl;
 
   /* thread creation attributes */
   s = pthread_attr_init(&attr);
@@ -510,6 +398,7 @@ void *receive_thread(void *arg) {
   char their_addr_st[INET_ADDRSTRLEN];
 
   char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+  
 
   if (arg == NULL)
     handle_error("receive_thread: arg is NULL");
@@ -589,8 +478,8 @@ void *receive_thread(void *arg) {
     if (!dropped) {
       /* got a message! (this is blocking via recvfrom) */
       do_saddrsto_to_sin_addr(their_addr, tmp_addr);
-      if (nMsgRecv1 ==
-          0) { /* case: 1st message! set from_addr1 to the sender */
+      if (nMsgRecv1 == 0) {
+      /* case: 1st message! set from_addr1 to the sender */
         from_addr1 = tmp_addr;
         nMsgRecv1++;
       } else if (nMsgRecv2 == 0 && tmp_addr != from_addr1) {
@@ -648,3 +537,55 @@ void *receive_thread(void *arg) {
   return (void *)(ret);
 }
 /* TODO: printouts should include thread number as well. */
+
+/* validate port numbers */
+int check_args(char *p, char *d, char *listen_on, char *e1, char *e2) {
+  int port;
+  float prob;
+  int delay;
+  char e1n[MAX_ADDR_LEN], e2n[MAX_ADDR_LEN];
+  int e1p, e2p;
+  int s;
+
+  port = atoi(listen_on);
+  prob = atof(p);
+  delay = atoi(d);
+
+  if (port < PORTMIN || port > PORTMAX) {
+    fprintf(stderr, "port must between %d and %d\n", PORTMIN, PORTMAX);
+
+    return EXIT_FAILURE;
+  }
+  if (prob < 0.0 || prob > 1.0) {
+    fprintf(stderr, "probility must between 0.0 and 1.0\n");
+    return EXIT_FAILURE;
+  }
+  if (delay < 0 || delay > MAX_DELAY) {
+    fprintf(stderr, "delay must between 0 and %d (s)\n", MAX_DELAY);
+    return EXIT_FAILURE;
+  }
+  if (e1 == NULL || e2 == NULL) {
+    fprintf(stderr, "endpoint-1 and endpoint-2 cannot be NULL\n");
+    return EXIT_FAILURE;
+  }
+
+  s = sscanf(e1, "%[^:]:%d", e1n, &e1p);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-1 must be in format <hostname>:<port>\n");
+    return EXIT_FAILURE;
+  }
+  s = sscanf(e2, "%[^:]:%d", e2n, &e2p);
+  if (s != 2) {
+    fprintf(stderr, "endpoint-2 must be in format <hostname>:<port>\n");
+    return EXIT_FAILURE;
+  }
+
+  if (e1p < PORTMIN || e1p > PORTMAX || e2p < PORTMIN || e2p > PORTMAX) {
+    fprintf(stderr, "endpoint port must between %d and %d\n", PORTMIN, PORTMAX);
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+
