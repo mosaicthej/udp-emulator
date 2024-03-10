@@ -17,6 +17,7 @@
 #define MAX_NODES 500
 
 #define LIST QUEUE /* we talk about QUEUE here !*/
+#define _LIST _QUEUE
 #undef HASCURR     /* there is no current item in a QUEUE */
 
 /*
@@ -88,4 +89,6 @@ int QCount(LIST *list);
  * @ret: - the deleted item, or NULL if the queue is empty
  * */
 void *QDequeue(LIST *list);
+#undef LIST
+#undef _LIST
 #endif /* _QUEUE_H_ */

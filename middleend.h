@@ -3,9 +3,10 @@
 
 #include <netdb.h>
 #include <stdint.h>
-#imclude <queue.h>
+#include <queue.h>
 #include <list.h>
 
+#define MALLOCMSG
 #if UINTPTR_MAX == 0xffff /* 16-bit */
 #define SYS_BITS 16
 #define VOID_PTR_CAST uint16_t
@@ -91,7 +92,7 @@ typedef struct _channelMsg {
 void *send_thread(void *);
 void *receive_thread(void *);
 
-int checkArgs(char*, char*, char*, char*, char*);
+int check_args(char*, char*, char*, char*, char*);
 
 struct addrinfo * pickToSend( struct addrinfo *,
       struct addrinfo *,

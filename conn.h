@@ -2,6 +2,19 @@
 #define _CONN_H_
 #include <netdb.h>
 #define CONNMACRO
+
+#define handle_error_en(en, msg)                                               \
+  do {                                                                         \
+    errno = en;                                                                \
+    perror(msg);                                                               \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
+#define handle_error(msg)                                                      \
+  do {                                                                         \
+    perror(msg);                                                               \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
 /* a collection of macros that are useful for this datagram prog */
 #define do_setup_hints(s, c, n, e)                                             \
   do {                                                                         \
