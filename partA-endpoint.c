@@ -58,6 +58,7 @@ typedef struct sender_info {
   pthread_t thread_id; /* set by pthread_create, parent has access to */
   char *send_to_host;
   char *send_to_port;
+  char *rply_to;
 
   VOID_PTR_INT_CAST nMsgRet;
 } Sender_info;
@@ -151,6 +152,8 @@ int main(int argc, char *argv[]) {
   /* args has no problemo, will fill in the args */
   send_info.send_to_host = send_to_host;
   send_info.send_to_port = send_to_port;
+  send_info.rply_to = receive_from_port; /* need to send it out too. 
+  only as initial message */ 
   recv_info.receive_from_port = receive_from_port;
 
   /* thread creation attributes */
@@ -211,6 +214,7 @@ void* send_thread(void *arg) {
   Sender_info *send_info;
   char *send_to_host;
   char *send_to_port;
+  char *rpy_to;
 
   /* network stuff */
   int sockfd;
@@ -229,7 +233,8 @@ void* send_thread(void *arg) {
   if (send_to_host == NULL || send_to_port == NULL)
     handle_error("send_thread: send_to_host or send_to_port is NULL");
   nMsgSentRet = &(send_info->nMsgRet);
-
+  rpy_to = send_info->rply_to;
+  
   spt = memset(&hints, 0, sizeof(hints));
   if (spt == NULL)
     handle_error("memset in send_thread");
@@ -260,6 +265,16 @@ void* send_thread(void *arg) {
 
   if (p == NULL) { /* if no socket is created */
     fprintf(stderr, "send_thread: failed to create socket\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* before the main loop. send 1 initial message about
+   * which port it is listening on */
+  printf("[send_thread]: told the other party my rpy_to is %s", rpy_to);
+  numbytes = sendto(sockfd, rpy_to, strlen(rpy_to),0,
+                    p->ai_addr, p->ai_addrlen);
+  if (numbytes < 0) {
+    perror("sendto");
     exit(EXIT_FAILURE);
   }
 
