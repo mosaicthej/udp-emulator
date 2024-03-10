@@ -1,16 +1,14 @@
-#include "middleend.h"
 #include "conn.h"
+#include "middleend.h"
 #include <errno.h>
-#include <stdbool.h>
+#include <pthread.h>
 #include <queue.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
-
-
 
 /* sender thread
  * set up connection,
@@ -39,11 +37,12 @@ void *send_thread(void *arg) {
   int delay;              /* delay in seconds */
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
-  char *kill; ChannelMsg *Qmsg;
+  char *kill;
 
   /* network stuff */
   int sockfd1, sockfd2;
-  in_addr_t to_addr1, to_addr2, msg_from, msg_to, tmp_addr;
+  struct sockaddr *to_addr1, *to_addr2, *msg_addr, *tmp_addr;
+  socklen_t len_addr1, len_addr2, len_msgAddr, len_tmp;
   char hbuf1[NI_MAXHOST], sbuf1[NI_MAXSERV];
   char hbuf2[NI_MAXHOST], sbuf2[NI_MAXSERV];
   /* 2 addresses */
@@ -51,6 +50,7 @@ void *send_thread(void *arg) {
   int numbytes;
 #ifdef MALLOCMSG
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
+  char *msgContent;
 #else
   char buf[MAX_MSG_SIZE];
 #endif
@@ -115,56 +115,66 @@ void *send_thread(void *arg) {
     }
     /* we have a message here (on Qmsg) */
     /* need to find which to go to */
-    do_p_to_sin_addr(p1, to_addr1);
-    do_p_to_sin_addr(p2, to_addr2);
-    msg_from = Qmsg->from;
-    if (msg_from == to_addr1) {
-      psend = p2;
-      msg_to = to_addr2;
-    } else {
-      psend = p2;
-      msg_to = to_addr1;
-    }
-    do_p_to_sin_addr(psend, tmp_addr);
-    if (tmp_addr != msg_to) {
-      fprintf(stderr, "addr_calc: we have a problem here\n");
-      exit(EXIT_FAILURE);
-    }
-    /* if it's 1 -> 2 */
+    to_addr1 = p1->ai_addr;
+    len_addr1 = p1->ai_addrlen;
+    to_addr2 = p2->ai_addr;
+    len_addr2 = p2->ai_addrlen;
+
+    /* this sender thread is responsible for,
+     * - taking the message_from address, then
+     * - find the correct `p` to send the message to.
+     * - send it.
+     * */
+    msg_addr = Qmsg->fromAddr;
+    len_msgAddr = Qmsg->fromAddrLen;
+    msgContent = Qmsg->msg;
+    psend = pickToSend(p1, p2, msg_addr, len_msgAddr);
+    /* psend is the correct p to send message to */
 #ifndef CONNMACRO
     handle_error("CONNMACRO is not defined");
 #else
-    if ((msg_to == to_addr1) && (!done)) {
-      do_sendto(sockfd1, Qmsg->msg, psend, done);
-      if(hasProblemo) done = true;
-      do_testkill(Qmsg->msg, kill, done);
+    if (sameAddr(psend->ai_addr, psend->ai_addrlen, p1->ai_addr,
+                 p1->ai_addrlen) &&
+        (!done)) {
+      do_sendto(sockfd1, msgContent, psend, done);
+      if (hasProblemo)
+        done = true;
+      do_testkill(msgContent, kill, done);
       do_free_msg(Qmsg);
       nMsgSent1++;
       if (done) {
         do_done_cleanup(servinfo1, sockfd1);
         do_done_send_print(nMsgSent1, "1");
       }
-    } else if ((msg_to == to_addr2) && (!done2)) {
-      do_sendto(sockfd2, Qmsg->msg, psend, done2);
-      do_testkill(Qmsg->msg, kill, done2);
+    } else if (sameAddr(psend->ai_addr, psend->ai_addrlen, p2->ai_addr,
+                        p2->ai_addrlen) &&
+               (!done2)) {
+      do_sendto(sockfd2, msgContent, psend, done2);
+      if (hasProblemo)
+        done2 = true;
+      do_testkill(msgContent, kill, done2);
+      do_free_msg(Qmsg);
       nMsgSent2++;
       if (done2) {
         do_done_cleanup(servinfo2, sockfd2);
         do_done_send_print(nMsgSent2, "2");
       }
     } else {
-      fprintf(stderr,
-              "send_thread: we have a problem here.\n"
-              "info: to_addr1: %s\t to_addr2: %s\n"
-              "\t stream to 1 closed: %s\n"
-              "\t stream to 2 closed: %s\n",
-              (msg_to == to_addr1) ? "yes" : "no",
-              (msg_to == to_addr2) ? "yes" : "no", (done) ? "yes" : "no",
-              (done2) ? "yes" : "no");
-      exit(EXIT_FAILURE);
-    }
+        fprintf(stderr,
+                "send_thread: we have a problem here.\n"
+                "info: to_addr1: %s\t to_addr2: %s\n"
+                "\t stream to 1 closed: %s\n"
+                "\t stream to 2 closed: %s\n",
+                (sameAddr(psend->ai_addr, psend->ai_addrlen, p1->ai_addr,
+                  p1->ai_addrlen)) ? "yes" : "no",
+                (sameAddr(psend->ai_addr, psend->ai_addrlen, p2->ai_addr,
+                  p2->ai_addrlen)) ? "yes" : "no", 
+                (done) ? "yes" : "no",
+                (done2) ? "yes" : "no");
+        exit(EXIT_FAILURE);
+      }
 #endif
-  hasMsg = false; 
+    hasMsg = false;
   }
   /* done main loop */
   *nMsgSentRet1 = nMsgSent1;
@@ -173,5 +183,3 @@ void *send_thread(void *arg) {
   return (void *)(ret);
   /* thread ended */
 }
-
-
