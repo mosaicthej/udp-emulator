@@ -297,7 +297,26 @@ For each of the endpoints, it has 3 parts of address:
 Initially, main thread (with cmd arguments), should fill in `Hx P_rx` for both
 endpoints from the commandline argv. With `P_sx` still left empty.
 
-When the first message come, which, the message itself is `rply_to`,
+When the first message come, which, the message itself is `rply_to`, 
+which is `P_rx` when this is being read... we can also get the corresponding
+`H_x` and `P_sx` via `getnameinfo`, with the 3 information, we can update
+the table `(H_x, P_rx) => P_sx`.
+
+For all later messages from receiver, the receiver would put on `(H_x, P_sx)`
+along with the message on the queue. 
+
+The sender would map `(H_x, P_sx) => (H_y, P_ry)`. 
+Then, (invertly) using `getnameinfo`, find which existing socket is matching
+`(H_y, P_ry)`. Finally, send the message.
+
+This is super duper robust (in terms of checks and scalilibility (??really?))
+That would
+1. Allowing endpoints with same host name or same port name, as long as the 
+combination of `(H_x, P_rx)` are different.
+2. Allowing port-forwarding. Endpoints could have using a proxy port to receive
+(However, it still requires the same hostname to infer the other port).
+3. Error checking. Sense in 1st time when the address info is corrupted.
+
 ##### Simulating Delay: polling-watchdog
 
 To simulating the delay, I would simply let the server sleep for $2d$ units of
