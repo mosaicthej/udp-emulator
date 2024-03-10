@@ -317,6 +317,23 @@ combination of `(H_x, P_rx)` are different.
 (However, it still requires the same hostname to infer the other port).
 3. Error checking. Sense in 1st time when the address info is corrupted.
 
+(yeah, Feels like I'm really trying to sell this over complicated thing...)
+
+For easier manipulation, have a function such that can figure out which
+sender to use.
+
+```c
+struct addrinfo * pickToSend(
+        struct addrinfo * p1, 
+        struct addrinfo * p2,
+        struct sockaddr * fromAddr, 
+        LookupTable * tbl);
+```
+
+Based on the `fromAddr`, which is obtained from `recvfrom`, 
+choose the right `addrinfo` node to return. This node would
+be used when to send the message.
+
 ##### Simulating Delay: polling-watchdog
 
 To simulating the delay, I would simply let the server sleep for $2d$ units of
