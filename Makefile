@@ -10,18 +10,30 @@ LISTS = list_adders list_movers list_removers
 # use the minimal version for now. (listmin.h)
 # now use the queue for library (queue.h)
 
+binaries = partA-endpoint partA-middleend testlist testlistmin testqueue
+
 all: partA-endpoint partA-middleend testlist testlistmin testqueue
 
 partA-endpoint: partA-endpoint.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -lpthread
 
-partA-middleend: partA-middleend.o libqueue.a
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -lpthread -L. -lqueue
+partA-middleend: partA-middleend.o \
+	middleend-receiver.o middleend-sender.o sockutil.o libqueue.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(filter-out %.a, $?) -lpthread -L. -lqueue
 
-partA-endpoint.o: partA-endpoint.c 
+partA-endpoint.o: partA-endpoint.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
 
-partA-middleend.o: partA-middleend.c queue.h conn.h
+partA-middleend.o: partA-middleend.c queue.h conn.h middleend.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
+
+middleend-receiver.o: middleend-receiver.c queue.h conn.h middleend.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
+
+middleend-sender.o: middleend-sender.c queue.h conn.h middleend.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
+
+sockutil.o: sockutil.c middleend.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
 
 testqueue: testqueue.o libqueue.a

@@ -1,5 +1,3 @@
-#include "middleend.h"
-#include "conn.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -13,6 +11,8 @@
 #include <pthread.h>
 
 
+#include "middleend.h"
+#include "conn.h"
 /* receiver thread
  * set up connection,
  * - receive data,
@@ -55,11 +55,9 @@ void *receive_thread(void *arg) {
   struct addrinfo hints, *servinfo, *p;
   socklen_t addr_len;
   struct sockaddr_storage their_addr;
-  char their_addr_st[INET_ADDRSTRLEN];
 
   char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
   
-
   if (arg == NULL)
     handle_error("receive_thread: arg is NULL");
   recv_info = (Receiver_info *)arg;
@@ -153,14 +151,14 @@ void *receive_thread(void *arg) {
       /* this message also contains `P_rx` reply port for this endpoint
        * add this information to the table */
         do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
-        strncpy(nameTbl->left.portSnd, sbuf, NI_MAXSERV);
+        strncpy(nameTbl->left->portSnd, sbuf, NI_MAXSERV);
       } else if (nMsgRecv2 == 0 && /* not the 1st. one, and haven't seen 2nd */
           !sameAddr(tmp_addr, len_tmp, from_addr1, len_addr1) ) {
         from_addr2 = tmp_addr; /* case: 1st message from the other end */
         len_addr2 = len_tmp;
         nMsgRecv2++;
         do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
-        strncpy(nameTbl->right.portSnd, sbuf, NI_MAXSERV);
+        strncpy(nameTbl->right->portSnd, sbuf, NI_MAXSERV);
       } else if (!sameAddr(tmp_addr, len_tmp, from_addr1, len_addr1) &&
                 !sameAddr(tmp_addr, len_tmp, from_addr2, len_addr2)){
         fprintf(stderr, "receive_thread: we have a problem here\n");

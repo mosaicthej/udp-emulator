@@ -42,8 +42,8 @@ void *send_thread(void *arg) {
 
   /* network stuff */
   int sockfd1, sockfd2;
-  struct sockaddr *to_addr1, *to_addr2, *msg_addr, *tmp_addr;
-  socklen_t len_addr1, len_addr2, len_msgAddr, len_tmp;
+  struct sockaddr *to_addr1, *to_addr2, *msg_addr;
+  socklen_t len_addr1, len_addr2, len_msgAddr;
   char hbuf1[NI_MAXHOST], sbuf1[NI_MAXSERV];
   char hbuf2[NI_MAXHOST], sbuf2[NI_MAXSERV];
   /* 2 addresses */
@@ -73,6 +73,7 @@ void *send_thread(void *arg) {
   QLock = send_info->QLock;
   kill = send_info->killMsg;
   ret = &(send_info->retVal);
+  nameTbl = send_info->nameTbl;
 
   if (send_to_host1 == NULL || send_to_port1 == NULL || send_to_host2 == NULL ||
       send_to_port2 == NULL)
@@ -129,13 +130,13 @@ void *send_thread(void *arg) {
     msg_addr = Qmsg->fromAddr;
     len_msgAddr = Qmsg->fromAddrLen;
     msgContent = Qmsg->msg;
-    psend = pickToSend(p1, p2, msg_addr, len_msgAddr);
+    psend = pickToSend(p1, p2, msg_addr, len_msgAddr, nameTbl);
     /* psend is the correct p to send message to */
 #ifndef CONNMACRO
     handle_error("CONNMACRO is not defined");
 #else
-    if (sameAddr(psend->ai_addr, psend->ai_addrlen, p1->ai_addr,
-                 p1->ai_addrlen) &&
+    if (sameAddr(psend->ai_addr, psend->ai_addrlen, to_addr1,
+                 len_addr1) &&
         (!done)) {
       do_sendto(sockfd1, msgContent, psend, done);
       if (hasProblemo)
@@ -147,8 +148,8 @@ void *send_thread(void *arg) {
         do_done_cleanup(servinfo1, sockfd1);
         do_done_send_print(nMsgSent1, "1");
       }
-    } else if (sameAddr(psend->ai_addr, psend->ai_addrlen, p2->ai_addr,
-                        p2->ai_addrlen) &&
+    } else if (sameAddr(psend->ai_addr, psend->ai_addrlen, to_addr2,
+                        len_addr2) &&
                (!done2)) {
       do_sendto(sockfd2, msgContent, psend, done2);
       if (hasProblemo)
@@ -166,10 +167,10 @@ void *send_thread(void *arg) {
                 "info: to_addr1: %s\t to_addr2: %s\n"
                 "\t stream to 1 closed: %s\n"
                 "\t stream to 2 closed: %s\n",
-                (sameAddr(psend->ai_addr, psend->ai_addrlen, p1->ai_addr,
-                  p1->ai_addrlen)) ? "yes" : "no",
-                (sameAddr(psend->ai_addr, psend->ai_addrlen, p2->ai_addr,
-                  p2->ai_addrlen)) ? "yes" : "no", 
+                (sameAddr(psend->ai_addr, psend->ai_addrlen, to_addr1,
+                  len_addr1)) ? "yes" : "no",
+                (sameAddr(psend->ai_addr, psend->ai_addrlen, to_addr2,
+                  len_addr2)) ? "yes" : "no", 
                 (done) ? "yes" : "no",
                 (done2) ? "yes" : "no");
         exit(EXIT_FAILURE);
