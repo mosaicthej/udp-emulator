@@ -195,7 +195,7 @@ void *receive_thread(void *arg) {
       QEnqueue(messagesQ, Qmsg);
       pthread_mutex_unlock(QLock);
       
-      if(sameAddr(Qmsg->fromAddr, addr_len, from_addr1, len_addr1)) 
+      if(sameAddr(Qmsg->fromAddr, Qmsg->fromAddrLen, from_addr1, len_addr1)) 
         do_testkill(rcvBuf, killMsg, done);
       else do_testkill(rcvBuf, killMsg, done2);
     } else printf("listener: packet dropped :P\n"); /* dropped */ 
