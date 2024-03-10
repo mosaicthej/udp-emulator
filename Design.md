@@ -387,3 +387,81 @@ while(!done){
 
 ### DataLink layer Selective Repeat
 
+now with the UDB channel set, we can use the layer as a simulation of a lossy
+physical layer.
+
+Using the endpoints to act as 2 sides in data link layer, implement the 
+selective-repeat protocol with a sliding window.
+
+Each side would have a sequence number. I choose the number to be in a range
+within 0-255, which, would be fit in a single byte so without need of byte-
+order conversion. 
+
+The idea is that. For each packet B sends to C, when C receives, C would have
+either send a ACK, or send a NAK when next packet arrives (the order is inferred
+by the sequence number).
+
+On the side of B, it keeps a buffer that is like a sliding window.
+Whenever hears ACK, and when it is in order, it increases its lower bound,
+whenever sends out a packet, it increases its upper bound.
+
+The buffer should be simple to implement with a list library. And for the window
+it would just rotate within 255 units. 
+
+I originally thought it is apporachable with the server sending out a WRAP
+message at 127, informing the client that it is about to WRAP the number around.
+
+However, due to the natural of such lossy channel, the WRAP or ACK to WRAP might
+have lost, and we went into a Bayzantine Generals problem....
+
+#### Number Range 
+
+By wrapping the number, the finite set of integer turns into an ordered sequence
+on both sides.
+
+When deciding the ordering, it is based on assumption that the window size
+(span) should always be less than 128. Hence, the window would always be on
+lesser than half of the number range.
+
+let $k$ be an arbitrary number in the range of 0-255.
+$W$ be our window with $|W| < 127$.
+
+Then, for any value $s$ from the window, $k=W_0+|W|$ be the next one after the 
+window, the right-distance would always be less than 128.
+
+We only keep track of `right-distance` and hence, we can define the ordering 
+in this way:
+
+The right-distance $d$ from $A$ to $B$ is defined as:
+    $d$ = $B - A$ if $B > A$
+        = $B + 256 - A$ if $B < A$
+
+#### Sliding Window: Sender
+
+The sender would keep a list of buffer for anything that is not yet ACKed.
+The buffer would have an upperlimit of 127, and would be forced to wait for
+ACK of the one coming, until then the window can begin to move and it can 
+keep sending again.
+
+The `ACK_x` comes with a sequence number `x`, telling the sender about
+which one has been acked and which one is rejected.
+
+Plan is to use a struct union which is 128 bits (16 bytes long) in total,
+and whenever it receives a `NAK`, it would stop sending other data, begin
+retransmitting the lost frame until it hears the `ACK` which it can then move
+forward.
+
+#### Sliding Window: Receiver
+
+On the receiver's side, it need to interprept the incoming message and sequence
+number, also aware of the ordering.
+
+A loss of a packet would not be explictly noticed, but the receiver would able
+to infer it from the sequence number.
+
+For example, if receives 2 4 5, which, upon `ACK_4` it would include the `NAK_3`
+too. 
+
+The above explaination to the number range would ensure that it would know when
+seeing a sequence less than what it expected, which, would propagates to an err.
+
