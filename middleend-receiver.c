@@ -43,6 +43,7 @@ void *receive_thread(void *arg) {
   int sockfd;
   int numBytes;
   struct sockaddr * from_addr1, * from_addr2, * tmp_addr;
+  socklen_t len_addr1, len_addr2, len_tmp;
 #ifdef MALLOCMSG
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
   char rcvBuf[MAX_MSG_SIZE];
@@ -136,32 +137,37 @@ void *receive_thread(void *arg) {
     gen_rand(rnd);
     dropped = rnd < drop_prob;
     if (!dropped &&
-       !(done && sameAddr((struct sockaddr *)&their_addr, from_addr1)) &&
-       !(done2 && sameAddr((struct sockaddr *)&their_addr, from_addr2))) {
+       !(done && sameAddr((struct sockaddr *)&their_addr, addr_len, 
+                          from_addr1, len_addr1)) &&
+       !(done2 && sameAddr((struct sockaddr *)&their_addr, addr_len,
+                           from_addr2, len_addr2))) {
     /* not dropped, and not from a closed buffer */
       tmp_addr = (struct sockaddr *)&their_addr;
+      len_tmp = addr_len;
       /* got a message! (this is blocking via recvfrom) */
       if (nMsgRecv1 == 0) {
       /* case: 1st message! set from_addr1 to the sender */
         from_addr1 = tmp_addr;
+        len_addr1 = len_tmp;
         nMsgRecv1++;
       /* this message also contains `P_rx` reply port for this endpoint
        * add this information to the table */
         do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
         strncpy(nameTbl->left.portSnd, sbuf, NI_MAXSERV);
-      } else if (nMsgRecv2 == 0 &&
-          !sameAddr(tmp_addr, from_addr1) ) {
+      } else if (nMsgRecv2 == 0 && /* not the 1st. one, and haven't seen 2nd */
+          !sameAddr(tmp_addr, len_tmp, from_addr1, len_addr1) ) {
         from_addr2 = tmp_addr; /* case: 1st message from the other end */
+        len_addr2 = len_tmp;
         nMsgRecv2++;
         do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
         strncpy(nameTbl->right.portSnd, sbuf, NI_MAXSERV);
-      } else if (!sameAddr(tmp_addr, from_addr1) &&
-                !sameAddr(tmp_addr, from_addr2)){
+      } else if (!sameAddr(tmp_addr, len_tmp, from_addr1, len_addr1) &&
+                !sameAddr(tmp_addr, len_tmp, from_addr2, len_addr2)){
         fprintf(stderr, "receive_thread: we have a problem here\n");
         exit(EXIT_FAILURE); /* neither is correct */
-      } else if (sameAddr(tmp_addr, from_addr1)) {
+      } else if (sameAddr(tmp_addr, len_tmp, from_addr1, len_addr1)) {
         nMsgRecv1++;
-      } else if (sameAddr(tmp_addr, from_addr2)) {
+      } else if (sameAddr(tmp_addr, len_tmp, from_addr2, len_addr2)) {
         nMsgRecv2++;
       } else {
         fprintf(stderr, "receive_thread: we have a problem here\n");
@@ -189,7 +195,7 @@ void *receive_thread(void *arg) {
       QEnqueue(messagesQ, Qmsg);
       pthread_mutex_unlock(QLock);
       
-      if(sameAddr(Qmsg->fromAddr, from_addr1)) 
+      if(sameAddr(Qmsg->fromAddr, addr_len, from_addr1, len_addr1)) 
         do_testkill(rcvBuf, killMsg, done);
       else do_testkill(rcvBuf, killMsg, done2);
     } else printf("listener: packet dropped :P\n"); /* dropped */ 

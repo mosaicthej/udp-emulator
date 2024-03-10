@@ -34,13 +34,13 @@
 
 #define MAX_DELAY 10 /* seconds */
 
-typedef struct edptInfo{
+typedef struct _endPointInfo{
   char hostName[NI_MAXHOST]; /* Hostname, we only support 1 hostname here */ 
   char portRcv[NI_MAXSERV]; /*  port used for receiving */
   char portSnd[NI_MAXSERV]; /* port used for sending */
 } EndPointName; /* this is 1 row on the table */
 
-typedef struct lookupTable{
+typedef struct _lookupTable{
   EndPointName left; /* left endpoint */
   EndPointName right; /* right endpoint */
 } LookupTable; /* this is the table */
@@ -87,6 +87,7 @@ add it to sender info and receiver info, also refactor the routines. */
 
 typedef struct _channelMsg {
   struct sockaddr * fromAddr; /* fill with `theirAddr` */
+  socklen_t fromAddrLen; /* fill with `addr_len` */
   char *msg;
 } ChannelMsg;
 
@@ -99,6 +100,7 @@ struct addrinfo * pickToSend( struct addrinfo *,
       struct addrinfo *,
       struct sockaddr *);
 
-bool sameAddr(struct sockaddr *, struct sockaddr *);
+bool sameAddr(struct sockaddr *, socklen_t, 
+              struct sockaddr *, socklen_t);
 
 #endif /* _MIDDLEEND_H_ */
