@@ -135,7 +135,10 @@ void *receive_thread(void *arg) {
     }
     gen_rand(rnd);
     dropped = rnd < drop_prob;
-    if (!dropped) {
+    if (!dropped &&
+       !(done && sameAddr((struct sockaddr *)&their_addr, from_addr1)) &&
+       !(done2 && sameAddr((struct sockaddr *)&their_addr, from_addr2))) {
+    /* not dropped, and not from a closed buffer */
       tmp_addr = (struct sockaddr *)&their_addr;
       /* got a message! (this is blocking via recvfrom) */
       if (nMsgRecv1 == 0) {
