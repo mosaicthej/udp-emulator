@@ -2,6 +2,7 @@
 #include "conn.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <netdb.h>
 #include <stdbool.h>
 #include <queue.h>
 #include <stddef.h>
@@ -34,12 +35,14 @@ void *receive_thread(void *arg) {
   float drop_prob, rnd;   /* drop probility */
   QUEUE *messagesQ;       /* list of messages */
   pthread_mutex_t *QLock; /* lock for the list */
-  char *killMsg;
+  char *killMsg; 
+
+  LookupTable *nameTbl;
 
   /* network */
   int sockfd;
   int numBytes;
-  in_addr_t from_addr1, from_addr2, tmp_addr;
+  struct sockaddr * from_addr1, * from_addr2, * tmp_addr;
 #ifdef MALLOCMSG
   ChannelMsg *Qmsg; /* message in buffer from malloc. */
   char rcvBuf[MAX_MSG_SIZE];
@@ -67,6 +70,7 @@ void *receive_thread(void *arg) {
   nMsgRecvRet1 = &(recv_info->nRecv1);
   nMsgRecvRet2 = &(recv_info->nRecv2);
   ret = &(recv_info->retVal);
+  nameTbl = recv_info->nameTbl;
   
 #ifndef CONNMACRO
   handle_error("CONNMACRO is not defined");
@@ -132,21 +136,29 @@ void *receive_thread(void *arg) {
     gen_rand(rnd);
     dropped = rnd < drop_prob;
     if (!dropped) {
+      tmp_addr = (struct sockaddr *)&their_addr;
       /* got a message! (this is blocking via recvfrom) */
-      do_saddrsto_to_sin_addr(their_addr, tmp_addr);
       if (nMsgRecv1 == 0) {
       /* case: 1st message! set from_addr1 to the sender */
         from_addr1 = tmp_addr;
         nMsgRecv1++;
-      } else if (nMsgRecv2 == 0 && tmp_addr != from_addr1) {
+      /* this message also contains `P_rx` reply port for this endpoint
+       * add this information to the table */
+        do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
+        strncpy(nameTbl->left.portSnd, sbuf, NI_MAXSERV);
+      } else if (nMsgRecv2 == 0 &&
+          !sameAddr(tmp_addr, from_addr1) ) {
         from_addr2 = tmp_addr; /* case: 1st message from the other end */
         nMsgRecv2++;
-      } else if (tmp_addr != from_addr1 && tmp_addr != from_addr2) {
+        do_getnameinfo(tmp_addr, addr_len, hbuf, sbuf);
+        strncpy(nameTbl->right.portSnd, sbuf, NI_MAXSERV);
+      } else if (!sameAddr(tmp_addr, from_addr1) &&
+                !sameAddr(tmp_addr, from_addr2)){
         fprintf(stderr, "receive_thread: we have a problem here\n");
         exit(EXIT_FAILURE); /* neither is correct */
-      } else if (tmp_addr == from_addr1) {
+      } else if (sameAddr(tmp_addr, from_addr1)) {
         nMsgRecv1++;
-      } else if (tmp_addr == from_addr2) {
+      } else if (sameAddr(tmp_addr, from_addr2)) {
         nMsgRecv2++;
       } else {
         fprintf(stderr, "receive_thread: we have a problem here\n");
@@ -167,13 +179,15 @@ void *receive_thread(void *arg) {
       if (Qmsg == NULL)
         handle_error("receive_thread: malloc failed");
       Qmsg->msg = buf;
-      Qmsg->from = tmp_addr;
-
+      Qmsg->fromAddr = (struct sockaddr *)&their_addr;
+      Qmsg->fromAddrLen = addr_len;
+      
       pthread_mutex_lock(QLock);
       QEnqueue(messagesQ, Qmsg);
       pthread_mutex_unlock(QLock);
       
-      if(Qmsg->from == from_addr1) do_testkill(rcvBuf, killMsg, done);
+      if(sameAddr(Qmsg->fromAddr, from_addr1)) 
+        do_testkill(rcvBuf, killMsg, done);
       else do_testkill(rcvBuf, killMsg, done2);
     } else printf("listener: packet dropped :P\n"); /* dropped */ 
   }
