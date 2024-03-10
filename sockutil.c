@@ -102,10 +102,16 @@ struct addrinfo *pickToSend(struct addrinfo *p1, struct addrinfo *p2,
   if (strcmp(left->hostName, msgFromHost) == 0 &&
       strcmp(left->portSnd, msgFromServ) == 0) {
     dest = right;
-  } else if (strcmp(right->hostName, msgFromHost) == 0 &&
-             strcmp(right->portSnd, msgFromServ) == 0) {
-    dest = left;
-  } else {
+  } else /* if (strcmp(right->hostName, msgFromHost) == 0 &&
+             strcmp(right->portSnd, msgFromServ) == 0) */ { 
+    dest = left; 
+    /* this does not need to be strict (in fact it can't) 
+     * when the 1st send the id, the 2nd would not be there
+     * yet. simply take "the other". Since the `send` port is 
+     * filled by receiver_thread. It not necessarily filled before
+     * we read.
+     * */
+  } /* else {
     fprintf(stderr,
             "[pickToSend]: we have a problem here\n"
             "info: msgFromHost: %s, msgFromServ: %s\n"
@@ -114,12 +120,14 @@ struct addrinfo *pickToSend(struct addrinfo *p1, struct addrinfo *p2,
             msgFromHost, msgFromServ, left->hostName, left->portSnd,
             right->hostName, right->portSnd);
     exit(EXIT_FAILURE);
-  }
+  } */ 
 
   /* dest contains the information we want to send to */
-  if ((strcmp(dest->hostName, p1Host)==0) && (strcmp(dest->portRcv, p1Serv)==0)) {
+  if ((strcmp(dest->hostName, p1Host) == 0) &&
+      (strcmp(dest->portRcv, p1Serv) == 0)) {
     return p1;
-  } else if ((strcmp(dest->hostName, p2Host)==0) && (strcmp(dest->portRcv, p2Serv)==0)) {
+  } else if ((strcmp(dest->hostName, p2Host) == 0) &&
+             (strcmp(dest->portRcv, p2Serv) == 0)) {
     return p2;
   } else {
     fprintf(stderr,

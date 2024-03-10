@@ -140,6 +140,8 @@
     if (getnameinfo((sa), (sal), (bhst), NI_MAXHOST, (bsrv), NI_MAXSERV,       \
                     NI_NUMERICHOST | NI_NUMERICSERV) != 0) {                   \
       fprintf(stderr, "getnameinfo: %s\n", gai_strerror(errno));               \
+      fprintf(stderr, "info: sockaddr:%p  socklen_t:%d, host:%s, serv:%s\n",   \
+              (void *)(sa), (sal), (bhst), (bsrv));                            \
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
   } while (0)

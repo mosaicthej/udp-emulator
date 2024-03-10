@@ -29,8 +29,8 @@
 #define PORTMIN 1024
 
 #define MAX_MSG_SIZE 256
-#define MAX_ADDR_LEN 128
-#define MAX_PORT_LEN 32
+#define MAX_ADDR_LEN NI_MAXHOST
+#define MAX_PORT_LEN NI_MAXSERV
 
 #define MAX_DELAY 10 /* seconds */
 

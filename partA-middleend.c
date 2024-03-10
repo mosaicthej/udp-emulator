@@ -54,6 +54,10 @@ int main(int argc, char *argv[]) {
   char endpoint1_host[MAX_ADDR_LEN], endpoint2_host[MAX_ADDR_LEN];
   char send_to_port1[MAX_PORT_LEN], send_to_port2[MAX_PORT_LEN];
 
+  /* <names> => getaddrinfo => getnameinfo => <AINames> */
+  struct addrinfo hints, *tempAI;
+  char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
   /* pthread related things */
   pthread_attr_t attr;
   void *res;
@@ -94,6 +98,52 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "endpoint-2 must be in format <hostname>:<port>\n");
     exit(EXIT_FAILURE);
   }
+
+  /* need first cast the endpoints (host and port) into 
+   * a result from `getaddrinfo`, then use `getnameinfo`
+   * to extract the host and port */
+  hints.ai_family = AF_INET;
+  hints.ai_socktype=SOCK_DGRAM;
+  hints.ai_protocol=0;
+  hints.ai_canonname=NULL;
+  hints.ai_addr=NULL;
+  hints.ai_next=NULL;
+  s = getaddrinfo(endpoint1_host, send_to_port1, &hints, &tempAI);
+  if (s != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+  }
+
+  /* use getnameinfo to load */
+  s = getnameinfo(tempAI->ai_addr, tempAI->ai_addrlen, 
+    hbuf, NI_MAXHOST, 
+    sbuf, NI_MAXSERV, 
+    NI_NUMERICHOST | NI_NUMERICSERV);
+  if (s != 0) {
+    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+      }
+  freeaddrinfo(tempAI); /* no longer needs this */
+  strncpy(send_to_port1, sbuf, NI_MAXSERV);
+  strncpy(endpoint1_host, hbuf, NI_MAXHOST);
+
+  /* repeat with the other */
+  s = getaddrinfo(endpoint2_host, send_to_port2, &hints, &tempAI);
+  if (s != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+  }
+  s = getnameinfo(tempAI->ai_addr, tempAI->ai_addrlen, 
+    hbuf, NI_MAXHOST, 
+    sbuf, NI_MAXSERV, 
+    NI_NUMERICHOST | NI_NUMERICSERV);
+  if (s != 0) {
+    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
+    exit(EXIT_FAILURE);
+      }
+  freeaddrinfo(tempAI); /* no longer needs this */
+  strncpy(send_to_port2, sbuf, NI_MAXSERV);
+  strncpy(endpoint2_host, hbuf, NI_MAXHOST);
 
   /* initialize the `Hx` and `P_rx` entry for each endpoint */
   strncpy(left.hostName, endpoint1_host, NI_MAXHOST);
