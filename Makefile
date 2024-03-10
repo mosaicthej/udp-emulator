@@ -1,3 +1,7 @@
+# Name: Mark Jia
+# NSID: mij623
+# StuN: 11271998
+
 .PHONY: clean all
 
 CC = gcc
@@ -12,7 +16,7 @@ LISTS = list_adders list_movers list_removers
 
 binaries = partA-endpoint partA-middleend testlist testlistmin testqueue
 
-all: partA-endpoint partA-middleend testlist testlistmin testqueue
+all: $(binaries)
 
 partA-endpoint: partA-endpoint.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< -lpthread
@@ -81,4 +85,4 @@ queue.o: queue.c queue.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -I.
 
 clean:
-	rm -f *.o *.a partA-endpoint testlist
+	rm -f *.o *.a $(binaries)

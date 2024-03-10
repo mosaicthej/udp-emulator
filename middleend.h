@@ -1,3 +1,5 @@
+/* Mark Jia, mij623, 11271998
+ * */
 #ifndef _MIDDLEEND_H_
 #define _MIDDLEEND_H_
 

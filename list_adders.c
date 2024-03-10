@@ -1,4 +1,7 @@
-/*
+/* 
+ * Mark Jia, mij623, 11271998
+ *
+ * Original Authors:
  * Joseph Medernach, imy309, 11313955
  * John Miller, knp254, 11323966
  */
