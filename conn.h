@@ -97,13 +97,14 @@
   } while (0)
 
 #define do_testkill(msg, kill, done)                                           \
-  do {        \
-  if(!(done)) {\
-    if (!((done) |= (strcmp((msg), (kill)) == 0))) /* if not same string */     \
-      (done) |= ((strncmp((msg), (kill), strlen((kill))) == 0) &&               \
-                (strlen((msg)) - strlen((msg)) == 1) &&                        \
-                ((msg)[strlen((kill))] == '\n'));                              \
-  }} while (0)
+  do {                                                                         \
+    if (!(done)) {                                                             \
+      if (!((done) |= (strcmp((msg), (kill)) == 0))) /* if not same string */  \
+        (done) |= ((strncmp((msg), (kill), strlen((kill))) == 0) &&            \
+                   (strlen((msg)) - strlen((msg)) == 1) &&                     \
+                   ((msg)[strlen((kill))] == '\n'));                           \
+    }                                                                          \
+  } while (0)
 #define do_free_msg(m)                                                         \
   do {                                                                         \
     free((m)->msg);                                                            \
@@ -134,15 +135,13 @@
                                                  (rIP), INET6_ADDRSTRLEN))     \
   } while (0)
 
-#define do_getnameinfo(sa, sal, bhst, bsrv) \
-do { \
-  if (getnameinfo((sa), (sal), \
-                  (bhst), NI_MAXHOST, \
-                  (bsrv), NI_MAXSERV, \
-                  NI_NUMERICHOST | NI_NUMERICSERV) != 0) { \
-    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(errno)); \
-    exit(EXIT_FAILURE); \
-  } \
-} while (0)
+#define do_getnameinfo(sa, sal, bhst, bsrv)                                    \
+  do {                                                                         \
+    if (getnameinfo((sa), (sal), (bhst), NI_MAXHOST, (bsrv), NI_MAXSERV,       \
+                    NI_NUMERICHOST | NI_NUMERICSERV) != 0) {                   \
+      fprintf(stderr, "getnameinfo: %s\n", gai_strerror(errno));               \
+      exit(EXIT_FAILURE);                                                      \
+    }                                                                          \
+  } while (0)
 
 #endif /* _CONN_H_ */
