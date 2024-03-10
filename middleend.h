@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <stdint.h>
 #include <queue.h>
+#include <stdbool.h>
 #include <list.h>
 
 #define MALLOCMSG
@@ -98,5 +99,6 @@ struct addrinfo * pickToSend( struct addrinfo *,
       struct addrinfo *,
       struct sockaddr *);
 
+bool sameAddr(struct sockaddr *, struct sockaddr *);
 
 #endif /* _MIDDLEEND_H_ */

@@ -133,4 +133,15 @@
                                                  (rIP), INET6_ADDRSTRLEN))     \
   } while (0)
 
+#define do_getnameinfo(sa, sal, bhst, bsrv) \
+do { \
+  if (getnameinfo((sa), (sal), \
+                  (bhst), NI_MAXHOST, \
+                  (bsrv), NI_MAXSERV, \
+                  NI_NUMERICHOST | NI_NUMERICSERV) != 0) { \
+    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(errno)); \
+    exit(EXIT_FAILURE); \
+  } \
+} while (0)
+
 #endif /* _CONN_H_ */
