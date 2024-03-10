@@ -126,10 +126,22 @@ To ensure safety and easier debug, I'll make the list allocated
 on main's stack. Since the threads will be sharing the same memory space,
 both threads can accesses the list if the list address is passed to them.
 
-It is memory safe as long as we don't have any dynamically allocated memory
-in my code. The list library put `MAX_LISTS` and `MAX_NODES` number of 
-`LIST`s and `NODE`s on the bss. 
-Self-contained without run-time memory allocation.
+note that different from the endpoint implementation, which keeps sending and 
+receiving, as we have a delay parameter in the server, the message might be 
+filled up fairly quickly... 
+
+In the first version, I'll simply malloc in the receiver, put the address on Q,
+let the sender thread send then `free`. 
+
+In a better version, I'll maintain a linked list that keeps buffering list of
+messages. (2 lists: - freeList, - QList)
+
+(JUST REALIZED...)
+BAD DESIGN IDEA....
+should do the binding inside main, then pass the sockets to the threads.
+Threads only do `sendto` and `recvfrom`...
+
+ahhh could have saved hours of debugging here...
 
 #### Channel: Receiver
 
@@ -205,6 +217,67 @@ the code by copy-pasting.
 
 I'll hold on to the oppurtunity for possible extraction 
 (maybe macros can help me?).
+
+
+UPDATE!!
+That did not work out...
+
+`getnameinfo` finds the source correctly...
+So, in receiver, I can find `host` and `service` 
+from incoming message.
+
+I should be able to cross-examine in sender to match the 
+correct host and service.
+
+UPDATE2!!
+I am the dumbest piece of 💩！！
+Of course you need to tell the whoever you sending to, where to reply!
+
+Why am I assuming that the sending service has ANYTHING to do with the
+listening part??!!?! I don't understand myself!!
+
+So now the plan is, make it (kind of TCP way that), upon the connection
+(modifying the endpoint modules), the endpoint should send 1st message
+to middleend about WHERE to shoot reply at!
+
+For example, for such output:
+
+```
+/partA-middleend 0.2 1 4000 localhost:4001 localhost:4002
+listener: waiting to recvfrom...
+connected to dest 1,    host: 127.0.0.1,        serv: 4001
+connected to dest 2,    host: 127.0.0.1,        serv: 4002
+[receive_thread]: got message:
+host: 127.0.0.1,        serv: 37433
+listener: got packet from 127.0.0.1
+listener: sender id for this packet is 1
+listener: packet is 2 bytes long
+listener: packet contains "a
+"
+[receive_thread]: got message:
+host: 127.0.0.1,        serv: 54755
+listener: got packet from 127.0.0.1
+listener: sender id for this packet is 1
+listener: packet is 2 bytes long
+listener: packet contains "a
+```
+
+Above is a scenario such that each of the 2 end points sending
+something through the middleend. 
+
+Therefore, we can make a new rule that, for each of the endpoints,
+upon connection, before transmitting any messages, should first send
+a message about the service (port) it is listening to.
+
+Middle-end would see this, and `getnameinfo` would give the info
+for the host and service it is coming from.
+
+Middle-end should add this to a mapping that, for every other time
+it sees a message from such source, it would be able to find the 
+corresponding destination.
+
+To make things less complicated, let's don't drop any packet on this
+initial stage.
 
 ##### Simulating Delay: polling-watchdog
 
