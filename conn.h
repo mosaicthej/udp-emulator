@@ -97,12 +97,13 @@
   } while (0)
 
 #define do_testkill(msg, kill, done)                                           \
-  do {                                                                         \
-    if (!((done) = (strcmp((msg), (kill)) == 0))) /* if not same string */     \
-      (done) = ((strncmp((msg), (kill), strlen((kill))) == 0) &&               \
+  do {        \
+  if(!(done)) {\
+    if (!((done) |= (strcmp((msg), (kill)) == 0))) /* if not same string */     \
+      (done) |= ((strncmp((msg), (kill), strlen((kill))) == 0) &&               \
                 (strlen((msg)) - strlen((msg)) == 1) &&                        \
                 ((msg)[strlen((kill))] == '\n'));                              \
-  } while (0)
+  }} while (0)
 #define do_free_msg(m)                                                         \
   do {                                                                         \
     free((m)->msg);                                                            \
