@@ -279,6 +279,25 @@ corresponding destination.
 To make things less complicated, let's don't drop any packet on this
 initial stage.
 
+
+A map(-like) data structure would be very helpful in this situation, 
+
+Turns out we actually need a 3-way table, and we set it up and accessing
+it in inverted ways.
+
+| Endpoint 1 | Endpoint 2 |    desc     |
+|------------|------------|-------------|
+|     H1     |     H2     |  Hostname   |
+|    P_r1    |    P_r2    | port-receive|
+|    P_s1    |    P_s2    |  port-send  |
+
+For each of the endpoints, it has 3 parts of address:
+`Hx`, `P_rx`, `P_sx`.
+
+Initially, main thread (with cmd arguments), should fill in `Hx P_rx` for both
+endpoints from the commandline argv. With `P_sx` still left empty.
+
+When the first message come, which, the message itself is `rply_to`,
 ##### Simulating Delay: polling-watchdog
 
 To simulating the delay, I would simply let the server sleep for $2d$ units of
